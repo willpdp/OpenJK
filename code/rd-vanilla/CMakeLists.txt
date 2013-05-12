@@ -154,10 +154,10 @@ if(NOT WIN32)
 endif(NOT WIN32)
 
 add_library(${SPRDVanillaRenderer} SHARED ${SPRDVanillaFiles})
-if(NOT WIN32)
+if((NOT WIN32) OR MINGW32)
 	# remove "lib" prefix for .so/.dylib files
 	set_target_properties(${SPRDVanillaRenderer} PROPERTIES PREFIX "")
-endif(NOT WIN32)
+endif((NOT WIN32) OR MINGW32)
 
 if(WIN32)
 	install(TARGETS ${SPRDVanillaRenderer} RUNTIME DESTINATION ".")
