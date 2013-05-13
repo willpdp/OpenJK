@@ -14,6 +14,10 @@
 #include <conio.h>
 #include "qcommon/stringed_ingame.h"
 
+#ifdef MINGW32
+#include <malloc.h>
+#endif
+
 #define MEM_THRESHOLD 128*1024*1024
 
 //static char		sys_cmdline[MAX_STRING_CHARS];
