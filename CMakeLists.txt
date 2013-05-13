@@ -20,7 +20,7 @@ set(BuildJK2SPGame OFF)
 #option(BuildJK2SPGame "Whether to create projects for the jk2 sp gamecode mod (jk2gamex86.dll)" ON)
 if(WIN32)
 	option(UseInternalOpenAL "Whether to use the included OpenAL instead of a locally installed one" ON)
-	option(UseInternalZlib "Whether to use the included zlib instead of a locally installed one" ON)
+	option(UseInternalZlib "Whether to use the included zlib instead of a locally installed one" OFF)
 endif(WIN32)
 # External version not yet supported, WIP
 # option(UseInternalJpeg "Whether to use the included libjpeg instead of a locally installed one" ON)
@@ -70,28 +70,32 @@ set(SPDir "${CMAKE_SOURCE_DIR}/code")
 set(MPDir "${CMAKE_SOURCE_DIR}/codemp")
 set(JK2SPDir "${CMAKE_SOURCE_DIR}/codeJK2")
 
+# OS defines
 if(WIN32)
 	set(Win32SharedDefines "WIN32" "_WIN32" "_WINDOWS")
 endif()
 
-# Common settings
-if(MSVC) # i.e. WIN32
+if(APPLE)
+	set(SharedDefines "MACOS_X" "_M_IX86")
+endif()
+
+if(NOT (APPLE OR WIN32))
+	#assume Linux
+	set(SharedDefines "__linux__" "_M_IX86")
+endif()
+
+# compiler defines
+
+if(MSVC)
 	set(SharedDefines ${Win32SharedDefines} "_CRT_SECURE_NO_WARNINGS")
-else(MSVC)
-#i.e. OSes other than Windows and Windows with MINGW or MSYS
+endif(MSVC)
+
+if(CMAKE_COMPILER_IS_GNUCC)
 
 	if(MINGW OR MSYS)
 		set(SharedDefines ${Win32SharedDefines} "_M_IX86" "MINGW32" "C_ONLY" "WINVER=0x0501" "_WIN32_WINNT=0x0501")
 	endif()
-
-	if (APPLE)
-		set(SharedDefines "MACOS_X" "_M_IX86")
-	endif()
 	
-	if(NOT (APPLE OR WIN32))
-		set(SharedDefines "__linux__" "_M_IX86")
-	endif()
-
 	# removes the -rdynamic flag at linking (which causes crashes for some reason)
 	set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 	set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
