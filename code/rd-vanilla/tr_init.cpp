@@ -157,6 +157,7 @@ cvar_t	*r_customwidth;
 cvar_t	*r_customheight;
 
 cvar_t	*r_overBrightBits;
+cvar_t	*r_mapOverBrightBits;
 
 cvar_t	*r_debugSurface;
 cvar_t	*r_simpleMipMaps;
@@ -202,7 +203,9 @@ cvar_t	*broadsword_dircap=0;
 cvar_t	*sv_mapname;
 cvar_t	*sv_mapChecksum;
 cvar_t	*se_language;			// JKA
+#ifndef __NO_JK2
 cvar_t	*sp_language;			// JK2
+#endif
 cvar_t	*com_buildScript;
 
 
@@ -282,41 +285,6 @@ PFNGLISPROGRAMARBPROC qglIsProgramARB = NULL;
 #endif
 
 void RE_SetLightStyle(int style, int color);
-
-static void AssertCvarRange( cvar_t *cv, float minVal, float maxVal, qboolean shouldBeIntegral,  qboolean shouldBeMult2)
-{
-	if ( shouldBeIntegral )
-	{
-		if ( ( int ) cv->value != cv->integer )
-		{
-			VID_Printf( PRINT_WARNING, "WARNING: cvar '%s' must be integral (%f)\n", cv->name, cv->value );
-			ri.Cvar_Set( cv->name, va( "%d", cv->integer ) );
-		}
-	}
-
-	if ( cv->value < minVal )
-	{
-		VID_Printf( PRINT_WARNING, "WARNING: cvar '%s' out of range (%f < %f)\n", cv->name, cv->value, minVal );
-		ri.Cvar_Set( cv->name, va( "%f", minVal ) );
-	}
-	else if ( cv->value > maxVal )
-	{
-		VID_Printf( PRINT_WARNING, "WARNING: cvar '%s' out of range (%f > %f)\n", cv->name, cv->value, maxVal );
-		ri.Cvar_Set( cv->name, va( "%f", maxVal ) );
-	}
-
-	if (shouldBeMult2)
-	{
-		if ( (cv->integer&(cv->integer-1)) )
-		{
-			int newvalue;
-			for (newvalue = 1 ; newvalue < cv->integer ; newvalue<<=1)
-				;
-			VID_Printf( PRINT_WARNING, "WARNING: cvar '%s' must be multiple of 2(%f)\n", cv->name, cv->value );
-			ri.Cvar_Set( cv->name, va( "%d", newvalue ) );
-		}
-	}
-}
 
 void R_Splash()
 {
@@ -434,8 +402,6 @@ void GL_CheckErrors( void ) {
     Com_Error( ERR_FATAL, "GL_CheckErrors: %s", s );
 }
 
-#ifndef _XBOX
-
 /*
 ** R_GetModeInfo
 */
@@ -502,8 +468,6 @@ static void R_ModeList_f( void )
 	VID_Printf( PRINT_ALL, "\n" );
 }
 
-#endif	// _XBOX
-
 /* 
 ============================================================================== 
  
@@ -524,7 +488,7 @@ void R_TakeScreenshot( int x, int y, int width, int height, char *fileName ) {
 	byte		*buffer;
 	int			i, c, temp;
 
-	qboolean bSaveAsJPG = !strnicmp(&fileName[strlen(fileName)-4],".jpg",4);
+	qboolean bSaveAsJPG = !Q_stricmpn(&fileName[strlen(fileName)-4],".jpg",4);
 
 	if (bSaveAsJPG)
 	{
@@ -876,7 +840,6 @@ extern bool g_bTextureRectangleHack;
 
 void GfxInfo_f( void ) 
 {
-	cvar_t *sys_cpustring = ri.Cvar_Get( "sys_cpustring", "", CVAR_ROM );
 	const char *enablestrings[] =
 	{
 		"disabled",
@@ -961,9 +924,20 @@ void GfxInfo_f( void )
 	VID_Printf( PRINT_ALL, "compressed textures: %s\n", enablestrings[glConfig.textureCompression != TC_NONE] );
 	VID_Printf( PRINT_ALL, "compressed lightmaps: %s\n", enablestrings[(r_ext_compressed_lightmaps->integer != 0 && glConfig.textureCompression != TC_NONE)] );
 	VID_Printf( PRINT_ALL, "texture compression method: %s\n", tc_table[glConfig.textureCompression] );
-	Com_Printf ("anisotropic filtering: %s  ", enablestrings[(r_ext_texture_filter_anisotropic->integer != 0) && glConfig.maxTextureFilterAnisotropy] );
-		Com_Printf ("(%f of %f)\n", r_ext_texture_filter_anisotropic->value, glConfig.maxTextureFilterAnisotropy );
-	Com_Printf ("Dynamic Glow: %s\n", enablestrings[r_DynamicGlow->integer] );
+	VID_Printf( PRINT_ALL, "anisotropic filtering: %s  ", enablestrings[(r_ext_texture_filter_anisotropic->integer != 0) && glConfig.maxTextureFilterAnisotropy] );
+	if (r_ext_texture_filter_anisotropic->integer != 0 && glConfig.maxTextureFilterAnisotropy)
+	{
+		if (Q_isintegral(r_ext_texture_filter_anisotropic->value))
+			VID_Printf( PRINT_ALL, "(%i of ", (int)r_ext_texture_filter_anisotropic->value);
+		else
+			VID_Printf( PRINT_ALL, "(%f of ", r_ext_texture_filter_anisotropic->value);
+
+		if (Q_isintegral(glConfig.maxTextureFilterAnisotropy))
+			VID_Printf( PRINT_ALL, "%i)\n", (int)glConfig.maxTextureFilterAnisotropy);
+		else
+			VID_Printf( PRINT_ALL, "%f)\n", glConfig.maxTextureFilterAnisotropy);
+	}
+	VID_Printf( PRINT_ALL, "Dynamic Glow: %s\n", enablestrings[r_DynamicGlow->integer] );
 	if (g_bTextureRectangleHack) Com_Printf ("Dynamic Glow ATI BAD DRIVER HACK %s\n", enablestrings[g_bTextureRectangleHack] );
 
 	if ( r_finish->integer ) {
@@ -1096,6 +1070,13 @@ void R_FogColor_f(void)
 			                          atof(ri.Cmd_Argv(3)) * tr.identityLight, 1.0 );
 }
 
+#ifdef _DEBUG
+#define MIN_PRIMITIVES -1
+#else
+#define MIN_PRIMITIVES 0
+#endif
+#define MAX_PRIMITIVES 3
+
 /*
 ===============
 R_Register
@@ -1106,7 +1087,9 @@ void R_Register( void )
 	//
 	// latched and archived variables
 	//
+#ifndef __NO_JK2
 	com_jk2 = ri.Cvar_Get( "com_jk2", "0", CVAR_INIT );
+#endif
 
 	r_allowExtensions = ri.Cvar_Get( "r_allowExtensions", "1", CVAR_ARCHIVE | CVAR_LATCH );
 	r_ext_compressed_textures = ri.Cvar_Get( "r_ext_compress_textures", "1", CVAR_ARCHIVE | CVAR_LATCH );
@@ -1119,35 +1102,32 @@ void R_Register( void )
 	r_ext_texture_filter_anisotropic = ri.Cvar_Get( "r_ext_texture_filter_anisotropic", "16", CVAR_ARCHIVE );
  
 	r_DynamicGlow = ri.Cvar_Get( "r_DynamicGlow", "0", CVAR_ARCHIVE );
-	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_CHEAT );
-	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_CHEAT );
-	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_CHEAT );
-	r_DynamicGlowSoft = ri.Cvar_Get( "r_DynamicGlowSoft", "1", CVAR_CHEAT );
-	r_DynamicGlowWidth = ri.Cvar_Get( "r_DynamicGlowWidth", "320", CVAR_CHEAT | CVAR_LATCH );
-	r_DynamicGlowHeight = ri.Cvar_Get( "r_DynamicGlowHeight", "240", CVAR_CHEAT | CVAR_LATCH );
+	r_DynamicGlowPasses = ri.Cvar_Get( "r_DynamicGlowPasses", "5", CVAR_ARCHIVE );
+	r_DynamicGlowDelta  = ri.Cvar_Get( "r_DynamicGlowDelta", "0.8f", CVAR_ARCHIVE );
+	r_DynamicGlowIntensity = ri.Cvar_Get( "r_DynamicGlowIntensity", "1.13f", CVAR_ARCHIVE );
+	r_DynamicGlowSoft = ri.Cvar_Get( "r_DynamicGlowSoft", "1", CVAR_ARCHIVE );
+	r_DynamicGlowWidth = ri.Cvar_Get( "r_DynamicGlowWidth", "320", CVAR_ARCHIVE | CVAR_LATCH );
+	r_DynamicGlowHeight = ri.Cvar_Get( "r_DynamicGlowHeight", "240", CVAR_ARCHIVE | CVAR_LATCH );
 
 	// Register point sprite stuff here.
 	r_ext_point_parameters = ri.Cvar_Get( "r_ext_point_parameters", "1", CVAR_ARCHIVE );
 	r_ext_nv_point_sprite = ri.Cvar_Get( "r_ext_nv_point_sprite", "1", CVAR_ARCHIVE );
 
 	r_picmip = ri.Cvar_Get ("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH );
+	ri.Cvar_CheckRange( r_picmip, 0, 16, qtrue );
 	r_colorMipLevels = ri.Cvar_Get ("r_colorMipLevels", "0", CVAR_LATCH );
-	AssertCvarRange( r_picmip, 0, 16, qtrue, qfalse );
 	r_detailTextures = ri.Cvar_Get( "r_detailtextures", "1", CVAR_ARCHIVE | CVAR_LATCH );
 	r_texturebits = ri.Cvar_Get( "r_texturebits", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_texturebitslm = ri.Cvar_Get( "r_texturebitslm", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_colorbits = ri.Cvar_Get( "r_colorbits", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_stereo = ri.Cvar_Get( "r_stereo", "0", CVAR_ARCHIVE | CVAR_LATCH );
-#ifdef __linux__
-	r_stencilbits = ri.Cvar_Get( "r_stencilbits", "0", CVAR_ARCHIVE | CVAR_LATCH );
-#else
 	r_stencilbits = ri.Cvar_Get( "r_stencilbits", "8", CVAR_ARCHIVE | CVAR_LATCH );
-#endif
 	r_depthbits = ri.Cvar_Get( "r_depthbits", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_overBrightBits = ri.Cvar_Get ("r_overBrightBits", "0", CVAR_ARCHIVE | CVAR_LATCH );
+	r_mapOverBrightBits = ri.Cvar_Get( "r_mapOverBrightBits", "0", CVAR_ARCHIVE|CVAR_LATCH );
 	r_ignorehwgamma = ri.Cvar_Get( "r_ignorehwgamma", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	r_mode = ri.Cvar_Get( "r_mode", "4", CVAR_ARCHIVE | CVAR_LATCH );
-	r_fullscreen = ri.Cvar_Get( "r_fullscreen", "1", CVAR_ARCHIVE | CVAR_LATCH );
+	r_fullscreen = ri.Cvar_Get( "r_fullscreen", "0", CVAR_ARCHIVE | CVAR_LATCH );
 	r_customwidth = ri.Cvar_Get( "r_customwidth", "1600", CVAR_ARCHIVE | CVAR_LATCH );
 	r_customheight = ri.Cvar_Get( "r_customheight", "1024", CVAR_ARCHIVE | CVAR_LATCH );
 	r_noborder = ri.Cvar_Get( "r_noborder", "0", CVAR_ARCHIVE | CVAR_LATCH );
@@ -1161,7 +1141,7 @@ void R_Register( void )
 	// temporary latched variables that can only change over a restart
 	//
 	r_displayRefresh = ri.Cvar_Get( "r_displayRefresh", "0", CVAR_LATCH );
-	AssertCvarRange( r_displayRefresh, 0, 200, qtrue, qfalse );
+	ri.Cvar_CheckRange( r_displayRefresh, 0, 200, qtrue );
 	r_fullbright = ri.Cvar_Get ("r_fullbright", "0", CVAR_CHEAT );
 	r_singleShader = ri.Cvar_Get ("r_singleShader", "0", CVAR_CHEAT | CVAR_LATCH );
 
@@ -1174,7 +1154,7 @@ void R_Register( void )
 	r_lodscale = ri.Cvar_Get( "r_lodscale", "10", CVAR_ARCHIVE );
 
 	r_znear = ri.Cvar_Get( "r_znear", "4", CVAR_CHEAT );	//if set any lower, you lose a lot of precision in the distance
-	AssertCvarRange( r_znear, 0.001f, 200, qfalse, qfalse );
+	ri.Cvar_CheckRange( r_znear, 0.001f, 200, qfalse ); // was qtrue in JA, is qfalse properly in ioq3
 	r_ignoreGLErrors = ri.Cvar_Get( "r_ignoreGLErrors", "1", CVAR_ARCHIVE );
 	r_fastsky = ri.Cvar_Get( "r_fastsky", "0", CVAR_ARCHIVE );
 	r_drawSun = ri.Cvar_Get( "r_drawSun", "0", CVAR_ARCHIVE );
@@ -1183,11 +1163,7 @@ void R_Register( void )
 	r_finish = ri.Cvar_Get ("r_finish", "0", CVAR_ARCHIVE);
 	r_textureMode = ri.Cvar_Get( "r_textureMode", "GL_LINEAR_MIPMAP_NEAREST", CVAR_ARCHIVE );
 	r_swapInterval = ri.Cvar_Get( "r_swapInterval", "0", CVAR_ARCHIVE );
-#ifdef __MACOS__
-	r_gamma = ri.Cvar_Get( "r_gamma", "1.2", CVAR_ARCHIVE );
-#else
 	r_gamma = ri.Cvar_Get( "r_gamma", "1", CVAR_ARCHIVE );
-#endif
 	r_facePlaneCull = ri.Cvar_Get ("r_facePlaneCull", "1", CVAR_ARCHIVE );
 
 	r_dlightStyle = ri.Cvar_Get ("r_dlightStyle", "1", CVAR_TEMP);
@@ -1203,6 +1179,7 @@ void R_Register( void )
 	r_windPointY = ri.Cvar_Get ("r_windPointY", "0", 0);
 
 	r_primitives = ri.Cvar_Get( "r_primitives", "0", CVAR_ARCHIVE );
+	ri.Cvar_CheckRange( r_primitives, MIN_PRIMITIVES, MAX_PRIMITIVES, qtrue );
 
 	r_ambientScale = ri.Cvar_Get( "r_ambientScale", "0.5", CVAR_CHEAT );
 	r_directedScale = ri.Cvar_Get( "r_directedScale", "1", CVAR_CHEAT );
@@ -1280,7 +1257,9 @@ Ghoul2 Insert End
 	sv_mapname = ri.Cvar_Get ( "mapname", "nomap", CVAR_SERVERINFO | CVAR_ROM );
 	sv_mapChecksum = ri.Cvar_Get ( "sv_mapChecksum", "", CVAR_ROM );
 	se_language = ri.Cvar_Get ( "se_language", "english", CVAR_ARCHIVE | CVAR_NORESTART );
+#ifndef __NO_JK2
 	sp_language = ri.Cvar_Get ( "sp_language", va("%d", SP_LANGUAGE_ENGLISH), CVAR_ARCHIVE | CVAR_NORESTART );
+#endif
 	com_buildScript = ri.Cvar_Get ( "com_buildScript", "0", 0 );
 
 	r_modelpoolmegs = ri.Cvar_Get("r_modelpoolmegs", "20", CVAR_ARCHIVE);
@@ -1309,6 +1288,7 @@ extern void R_WorldEffect_f(void);	//TR_WORLDEFFECTS.CPP
 	ri.Cmd_AddCommand( "r_we", R_WorldEffect_f );
 extern void R_ReloadFonts_f(void);
 	ri.Cmd_AddCommand( "r_reloadfonts", R_ReloadFonts_f );
+	ri.Cmd_AddCommand( "minimize", GLimp_Minimize );
 	// make sure all the commands added above are also
 	// removed in R_Shutdown
 }
@@ -1346,8 +1326,8 @@ void R_Init( void ) {
 //	Swap_Init();
 
 #ifndef FINAL_BUILD
-	if ( (int)tess.xyz & 15 ) {
-		Com_Printf( "WARNING: tess.xyz not 16 byte aligned (%x)\n",(int)tess.xyz & 15 );
+	if ( (intptr_t)tess.xyz & 15 ) {
+		Com_Printf( "WARNING: tess.xyz not 16 byte aligned (%x)\n",(intptr_t)tess.xyz & 15 );
 	}
 #endif
 
@@ -1385,7 +1365,7 @@ void R_Init( void ) {
 	R_Register();
 
 	backEndData = (backEndData_t *) Hunk_Alloc( sizeof( backEndData_t ), qtrue );
-	R_ToggleSmpFrame();	//r_smp
+	R_InitNextFrame();
 
 	const color4ub_t	color = {0xff, 0xff, 0xff, 0xff};
 	for(i=0;i<MAX_LIGHT_STYLES;i++)
@@ -1398,9 +1378,7 @@ void R_Init( void ) {
 	R_InitImages();
 	R_InitShaders();
 	R_InitSkins();
-#ifndef _XBOX
 	R_TerrainInit();
-#endif
 	R_ModelInit();
 	R_InitWorldEffects();
 	R_InitFonts();
@@ -1437,15 +1415,13 @@ void RE_Shutdown( qboolean destroyWindow ) {
 	ri.Cmd_RemoveCommand ("imagecacheinfo");
 	ri.Cmd_RemoveCommand ("r_we");
 	ri.Cmd_RemoveCommand ("r_reloadfonts");
+	ri.Cmd_RemoveCommand ("minimize");
 
 	R_ShutdownWorldEffects();
-#ifndef _XBOX
 	R_TerrainShutdown();
-#endif
 	R_ShutdownFonts();
 
 	if ( tr.registered ) {
-#ifndef _XBOX	// GLOWXXX
 		if ( r_DynamicGlow && r_DynamicGlow->integer )
 		{
 			// Release the Glow Vertex Shader.
@@ -1478,12 +1454,9 @@ void RE_Shutdown( qboolean destroyWindow ) {
 			// Release the blur texture.
 			qglDeleteTextures( 1, &tr.blurImage );
 		}
-#endif
 //		R_SyncRenderThread();
 		R_ShutdownCommandBuffers();
-//#ifndef _XBOX
 		if (destroyWindow)
-//#endif
 		{
 			R_DeleteTextures();	// only do this for vid_restart now, not during things like map load
 		}
@@ -1626,6 +1599,12 @@ extern void G2Time_ReportTimers(void);
 #endif
 extern IGhoul2InfoArray &TheGhoul2InfoArray();
 
+#ifndef __NO_JK2
+unsigned int AnyLanguage_ReadCharFromString_JK2 ( char **text, qboolean *pbIsTrailingPunctuation ) {
+	return AnyLanguage_ReadCharFromString (text, pbIsTrailingPunctuation);
+}
+#endif
+
 extern "C" {
 
 Q_EXPORT refexport_t * QDECL GetRefAPI ( int apiVersion, refimport_t *refimp ) {
@@ -1713,7 +1692,9 @@ Q_EXPORT refexport_t * QDECL GetRefAPI ( int apiVersion, refimport_t *refimp ) {
 	re.Language_IsAsian = Language_IsAsian;
 	re.Language_UsesSpaces = Language_UsesSpaces;
 	re.AnyLanguage_ReadCharFromString = AnyLanguage_ReadCharFromString;
-	re.AnyLanguage_ReadCharFromString2 = AnyLanguage_ReadCharFromString;
+#ifndef __NO_JK2
+	re.AnyLanguage_ReadCharFromString2 = AnyLanguage_ReadCharFromString_JK2;
+#endif
 
 	re.R_Resample = R_Resample;
 	re.R_LoadDataImage = R_LoadDataImage;

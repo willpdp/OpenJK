@@ -47,9 +47,7 @@ This file is part of Jedi Knight 2.
 
 #endif
 
-#ifndef _XBOX
 #define _G2_GORE
-#endif
 
 #include <assert.h>
 #include <math.h>
@@ -59,7 +57,7 @@ This file is part of Jedi Knight 2.
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
-
+#include <stddef.h>
 
 // this is the define for determining if we have an asm version of a C function
 #if (defined _M_IX86 || defined __i386__) && !defined __sun__  && !defined __LCC__
@@ -1108,7 +1106,7 @@ Ghoul2 Insert Start
 */
 
 #if !defined(GHOUL2_SHARED_H_INC)
-	#include "..\game\ghoul2_shared.h"	//for CGhoul2Info_v
+	#include "../game/ghoul2_shared.h"	//for CGhoul2Info_v
 #endif
 
 /*

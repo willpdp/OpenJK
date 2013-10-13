@@ -9,6 +9,7 @@
 #include <float.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <direct.h>
 #include <io.h>
 #include <conio.h>
@@ -19,8 +20,6 @@
 #endif
 
 #define MEM_THRESHOLD 128*1024*1024
-
-//static char		sys_cmdline[MAX_STRING_CHARS];
 
 /* win_shared.cpp */
 void Sys_SetBinaryPath(const char *path);
@@ -167,6 +166,27 @@ Sys_DefaultCDPath
 */
 char *Sys_DefaultCDPath( void ) {
 	return "";
+}
+
+/* Resolves path names and determines if they are the same */
+/* For use with full OS paths not quake paths */
+/* Returns true if resulting paths are valid and the same, otherwise false */
+bool Sys_PathCmp( const char *path1, const char *path2 ) {
+	char *r1, *r2;
+
+	r1 = _fullpath(NULL, path1, MAX_OSPATH);
+	r2 = _fullpath(NULL, path2, MAX_OSPATH);
+
+	if(r1 && r2 && !Q_stricmp(r1, r2))
+	{
+		free(r1);
+		free(r2);
+		return true;
+	}
+
+	free(r1);
+	free(r2);
+	return false;
 }
 
 /*
@@ -529,9 +549,7 @@ Used to load a development dll instead of a virtual machine
 =================
 */
 
-extern char		*FS_BuildOSPath( const char *base, const char *game, const char *qpath );
-
-void * QDECL Sys_LoadGameDll( const char *name, intptr_t (QDECL **entryPoint)(int, ...), intptr_t (QDECL *systemcalls)(intptr_t, ...) ) {
+void * QDECL Sys_LoadLegacyGameDll( const char *name, intptr_t (QDECL **vmMain)(int, ...), intptr_t (QDECL *systemcalls)(intptr_t, ...) ) {
 	HINSTANCE	libHandle;
 	void	(QDECL *dllEntry)( intptr_t (QDECL *syscallptr)(intptr_t, ...) );
 	char	*basepath;
@@ -541,7 +559,7 @@ void * QDECL Sys_LoadGameDll( const char *name, intptr_t (QDECL **entryPoint)(in
 	char	*fn;
 	char	filename[MAX_QPATH];
 
-	Com_sprintf( filename, sizeof( filename ), "%sx86.dll", name );
+	Com_sprintf( filename, sizeof( filename ), "%s" ARCH_STRING DLL_EXT, name );
 
 	if (!Sys_UnpackDLL(filename))
 	{
@@ -576,12 +594,61 @@ void * QDECL Sys_LoadGameDll( const char *name, intptr_t (QDECL **entryPoint)(in
 	}
 
 	dllEntry = ( void (QDECL *)( intptr_t (QDECL *)( intptr_t, ... ) ) )GetProcAddress( libHandle, "dllEntry" ); 
-	*entryPoint = (intptr_t (QDECL *)(int,...))GetProcAddress( libHandle, "vmMain" );
-	if ( !*entryPoint || !dllEntry ) {
+	*vmMain = (intptr_t (QDECL *)(int,...))GetProcAddress( libHandle, "vmMain" );
+	if ( !*vmMain || !dllEntry ) {
 		FreeLibrary( libHandle );
 		return NULL;
 	}
 	dllEntry( systemcalls );
+
+	return libHandle;
+}
+
+void *QDECL Sys_LoadGameDll( const char *name, void *(QDECL **moduleAPI)(int, ...) ) {
+	HINSTANCE	libHandle;
+	char	*basepath, *homepath, *cdpath, *gamedir;
+	char	*fn;
+	char	filename[MAX_QPATH];
+
+	Com_sprintf( filename, sizeof( filename ), "%s"ARCH_STRING DLL_EXT, name );
+
+	if (!Sys_UnpackDLL(filename))
+	{
+		return NULL;
+	}
+
+	libHandle = LoadLibrary( filename );
+	if ( !libHandle ) {
+		basepath = Cvar_VariableString( "fs_basepath" );
+		homepath = Cvar_VariableString( "fs_homepath" );
+		cdpath = Cvar_VariableString( "fs_cdpath" );
+		gamedir = Cvar_VariableString( "fs_game" );
+
+		fn = FS_BuildOSPath( basepath, gamedir, filename );
+		libHandle = LoadLibrary( fn );
+
+		if ( !libHandle ) {
+			if( homepath[0] ) {
+				fn = FS_BuildOSPath( homepath, gamedir, filename );
+				libHandle = LoadLibrary( fn );
+			}
+			if ( !libHandle ) {
+				if( cdpath[0] ) {
+					fn = FS_BuildOSPath( cdpath, gamedir, filename );
+					libHandle = LoadLibrary( fn );
+				}
+				if ( !libHandle ) {
+					return NULL;
+				}
+			}
+		}
+	}
+
+	*moduleAPI = (void *(QDECL *)(int,...))GetProcAddress( libHandle, "GetModuleAPI" );
+	if ( !*moduleAPI ) {
+		FreeLibrary( libHandle );
+		return NULL;
+	}
 
 	return libHandle;
 }
@@ -620,7 +687,7 @@ void Sys_StreamSeek( fileHandle_t f, int offset, int origin ) {
 
 #else
 
-typedef struct {
+typedef struct streamsIO_s {
 	fileHandle_t	file;
 	byte	*buffer;
 	qboolean	eof;
@@ -630,7 +697,7 @@ typedef struct {
 	int		threadPosition;	// next byte to be read from file
 } streamsIO_t;
 
-typedef struct {
+typedef struct streamState_s {
 	HANDLE				threadHandle;
 	int					threadId;
 	CRITICAL_SECTION	crit;
@@ -1079,7 +1146,7 @@ void QuickMemTest(void)
 		{
 			// err...
 			//
-			LPCSTR psContinue = re.Language_IsAsian() ? 
+			LPCSTR psContinue = re->Language_IsAsian() ? 
 								"Your machine failed to allocate %dMB in a memory test, which may mean you'll have problems running this game all the way through.\n\nContinue anyway?"
 								: 
 								SE_GetString("CON_TEXT_FAILED_MEMTEST");
@@ -1088,7 +1155,7 @@ void QuickMemTest(void)
 			#define GetYesNo(psQuery)	(!!(MessageBox(NULL,psQuery,"Query",MB_YESNO|MB_ICONWARNING|MB_TASKMODAL)==IDYES))
 			if (!GetYesNo(va(psContinue,iMemTestMegs)))
 			{
-				LPCSTR psNoMem = re.Language_IsAsian() ?
+				LPCSTR psNoMem = re->Language_IsAsian() ?
 								"Insufficient memory to run this game!\n"
 								:
 								SE_GetString("CON_TEXT_INSUFFICIENT_MEMORY");
@@ -1188,11 +1255,7 @@ static int ParseCommandLine(char *cmdline, char **argv)
 //int	totalMsec, countMsec;
 
 #ifndef DEFAULT_BASEDIR
-#	ifdef MACOS_X
-#		define DEFAULT_BASEDIR Sys_StripAppBundle(Sys_BinaryPath())
-#	else
-#		define DEFAULT_BASEDIR Sys_BinaryPath()
-#	endif
+#	define DEFAULT_BASEDIR Sys_BinaryPath()
 #endif
 
 int main( int argc, char **argv )

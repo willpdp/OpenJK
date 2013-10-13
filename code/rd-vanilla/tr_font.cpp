@@ -88,7 +88,7 @@ Language_e GetLanguageEnum()
 
 struct SBCSOverrideLanguages_t
 {
-	LPCSTR		m_psName;
+	const char *m_psName;
 	Language_e	m_eLanguage;
 };
 
@@ -142,7 +142,7 @@ struct ThaiCodes_t
 
 	int GetWidth( int iGlyphIndex )
 	{
-		if (iGlyphIndex < m_viGlyphWidths.size())
+		if (iGlyphIndex < (int)m_viGlyphWidths.size())
 		{
 			return m_viGlyphWidths[ iGlyphIndex ];
 		}
@@ -326,7 +326,7 @@ static int Korean_CollapseKSC5601HangulCode(unsigned int uiCode)
 	return 0;
 }
 
-static int Korean_InitFields(int &iGlyphTPs, LPCSTR &psLang)
+static int Korean_InitFields(int &iGlyphTPs, const char *&psLang)
 {
 	psLang		= "kor";
 	iGlyphTPs	= GLYPH_MAX_KOREAN_SHADERS;
@@ -378,7 +378,7 @@ static bool Taiwanese_IsTrailingPunctuation( unsigned int uiCode )
 	// so far I'm just counting the first 21 chars, those seem to be all the basic punctuation...
 	//
 	if (	uiCode >= ((BIG5_HIBYTE_START0<<8)|BIG5_LOBYTE_LOBOUND0) && 
-			uiCode <  ((BIG5_HIBYTE_START0<<8)|BIG5_LOBYTE_LOBOUND0+20)
+			uiCode <  (((BIG5_HIBYTE_START0<<8)|BIG5_LOBYTE_LOBOUND0)+20)
 		)
 	{
 		return true;
@@ -408,7 +408,7 @@ static int Taiwanese_CollapseBig5Code( unsigned int uiCode )
 	return 0;
 }
 
-static int Taiwanese_InitFields(int &iGlyphTPs, LPCSTR &psLang)
+static int Taiwanese_InitFields(int &iGlyphTPs, const char *&psLang)
 {
 	psLang		= "tai";
 	iGlyphTPs	= GLYPH_MAX_TAIWANESE_SHADERS;
@@ -465,7 +465,7 @@ static bool Japanese_IsTrailingPunctuation( unsigned int uiCode )
 	// so far I'm just counting the first 18 chars, those seem to be all the basic punctuation...
 	//
 	if (	uiCode >= ((SHIFTJIS_HIBYTE_START0<<8)|SHIFTJIS_LOBYTE_START0) && 
-			uiCode <  ((SHIFTJIS_HIBYTE_START0<<8)|SHIFTJIS_LOBYTE_START0+18)
+			uiCode <  (((SHIFTJIS_HIBYTE_START0<<8)|SHIFTJIS_LOBYTE_START0)+18)
 		)
 	{
 		return true;
@@ -503,7 +503,7 @@ static int Japanese_CollapseShiftJISCode( unsigned int uiCode )
 }
 
 
-static int Japanese_InitFields(int &iGlyphTPs, LPCSTR &psLang)
+static int Japanese_InitFields(int &iGlyphTPs, const char *&psLang)
 {
 	psLang		= "jap";
 	iGlyphTPs	= GLYPH_MAX_JAPANESE_SHADERS;
@@ -543,7 +543,7 @@ static bool Chinese_IsTrailingPunctuation( unsigned int uiCode )
 	// so far I'm just counting the first 13 chars, those seem to be all the basic punctuation...
 	//
 	if (	uiCode >  ((GB_HIBYTE_START<<8)|GB_LOBYTE_LOBOUND) && 
-			uiCode <  ((GB_HIBYTE_START<<8)|GB_LOBYTE_LOBOUND+14)
+			uiCode <  (((GB_HIBYTE_START<<8)|GB_LOBYTE_LOBOUND)+14)
 		)
 	{
 		return true;
@@ -570,7 +570,7 @@ static int Chinese_CollapseGBCode( unsigned int uiCode )
 	return 0;
 }
 
-static int Chinese_InitFields(int &iGlyphTPs, LPCSTR &psLang)
+static int Chinese_InitFields(int &iGlyphTPs, const char *&psLang)
 {
 	psLang		= "chi";
 	iGlyphTPs	= GLYPH_MAX_CHINESE_SHADERS;
@@ -673,7 +673,7 @@ static int Thai_CollapseTISCode( unsigned int uiCode )
 	return 0;
 }
 
-static int Thai_InitFields(int &iGlyphTPs, LPCSTR &psLang)
+static int Thai_InitFields(int &iGlyphTPs, const char *&psLang)
 {
 	psLang		= "tha";
 	iGlyphTPs	= GLYPH_MAX_THAI_SHADERS;
@@ -706,6 +706,7 @@ unsigned int AnyLanguage_ReadCharFromString( char *psText, int *piAdvanceCount, 
 			{
 				uiLetter = (psString[0] * 256) + psString[1];
 				psText += 2;
+				*piAdvanceCount = 2;
 
 				// not going to bother testing for korean punctuation here, since korean already 
 				//	uses spaces, and I don't have the punctuation glyphs defined, only the basic 2350 hanguls
@@ -725,6 +726,7 @@ unsigned int AnyLanguage_ReadCharFromString( char *psText, int *piAdvanceCount, 
 			{
 				uiLetter = (psString[0] * 256) + psString[1];
 				psText += 2;
+				*piAdvanceCount = 2;
 
 				// need to ask if this is a trailing (ie like a comma or full-stop) punctuation?...
 				//
@@ -743,6 +745,7 @@ unsigned int AnyLanguage_ReadCharFromString( char *psText, int *piAdvanceCount, 
 			{
 				uiLetter = (psString[0] * 256) + psString[1];
 				psText += 2;
+				*piAdvanceCount = 2;
 
 				// need to ask if this is a trailing (ie like a comma or full-stop) punctuation?...
 				//
@@ -759,6 +762,7 @@ unsigned int AnyLanguage_ReadCharFromString( char *psText, int *piAdvanceCount, 
 		//
 		uiLetter = psString[0];
 		psText += 1;	// NOT ++
+		*piAdvanceCount = 1;
 
 		if (pbIsTrailingPunctuation)
 		{
@@ -875,6 +879,9 @@ unsigned int AnyLanguage_ReadCharFromString( char *psText, int *piAdvanceCount, 
 			}
 		}
 		break;
+
+		default:
+		break;
 	}
 
 	// ... must not have been an MBCS code...
@@ -902,82 +909,11 @@ unsigned int AnyLanguage_ReadCharFromString( char *psText, int *piAdvanceCount, 
 #ifndef __NO_JK2
 unsigned int AnyLanguage_ReadCharFromString( char **psText, qboolean *pbIsTrailingPunctuation /* = NULL */)
 {	
-	// JK2 does this func a little differently --eez
-	const byte *psString = (const byte *) *psText;	// avoid sign-promote bug
-	unsigned int uiLetter;
+	int advance = 0;
+	unsigned int advance2 = AnyLanguage_ReadCharFromString (*psText, &advance, pbIsTrailingPunctuation);
+	*psText += advance;
 
-	if ( Language_IsKorean() )
-	{
-		if ( Korean_ValidKSC5601Hangul( psString[0], psString[1] ))
-		{
-			uiLetter = (psString[0] * 256) + psString[1];
-			*psText += 2;
-
-			// not going to bother testing for korean punctuation here, since korean already 
-			//	uses spaces, and I don't have the punctuation glyphs defined, only the basic 2350 hanguls
-			//
-			if ( pbIsTrailingPunctuation)
-			{
-				*pbIsTrailingPunctuation = qfalse;
-			}
-
-			return uiLetter;
-		}
-	}
-	else
-	if ( Language_IsTaiwanese() )
-	{
-		if ( Taiwanese_ValidBig5Code( (psString[0] * 256) + psString[1] ))
-		{
-			uiLetter = (psString[0] * 256) + psString[1];
-			*psText += 2;
-
-			// need to ask if this is a trailing (ie like a comma or full-stop) punctuation?...
-			//
-			if ( pbIsTrailingPunctuation)
-			{
-				*pbIsTrailingPunctuation = Taiwanese_IsTrailingPunctuation( uiLetter );
-			}
-
-			return uiLetter;
-		}
-	}
-	else
-	if ( Language_IsJapanese() )
-	{
-		if ( Japanese_ValidShiftJISCode( psString[0], psString[1] ))
-		{
-			uiLetter = (psString[0] * 256) + psString[1];
-			*psText += 2;
-
-			// need to ask if this is a trailing (ie like a comma or full-stop) punctuation?...
-			//
-			if ( pbIsTrailingPunctuation)
-			{
-				*pbIsTrailingPunctuation = Japanese_IsTrailingPunctuation( uiLetter );
-			}
-
-			return uiLetter;
-		}
-	}
-
-	// ... must not have been an MBCS code...
-	//
-	uiLetter = psString[0];
-	*psText += 1;	// NOT ++
-
-	if (pbIsTrailingPunctuation)
-	{
-		*pbIsTrailingPunctuation = (uiLetter == '!' || 
-									uiLetter == '?' || 
-									uiLetter == ',' || 
-									uiLetter == '.' || 
-									uiLetter == ';' || 
-									uiLetter == ':'
-									);
-	}
-
-	return uiLetter;
+	return advance2;
 }
 #endif
 
@@ -994,6 +930,8 @@ qboolean Language_IsAsian(void)
 		case eChinese:
 		case eThai:	// this is asian, but the query is normally used for scaling
 			return qtrue;
+		default:
+			break;
 	}
 
 	return qfalse;
@@ -1009,6 +947,8 @@ qboolean Language_UsesSpaces(void)
 		case eChinese:		
 		case eThai:			
 			return qfalse;
+		default:
+			break;
 	}
 
 	return qtrue;
@@ -1075,7 +1015,7 @@ CFontInfo::CFontInfo(const char *_fontName)
 	}
 
 	Q_strncpyz(m_sFontName, fontName, sizeof(m_sFontName));
-	COM_StripExtension( m_sFontName, m_sFontName );	// so we get better error printing if failed to load shader (ie lose ".fontdat")
+	COM_StripExtension( m_sFontName, m_sFontName, sizeof(m_sFontName) );	// so we get better error printing if failed to load shader (ie lose ".fontdat")
 	mShader = RE_RegisterShaderNoMip(m_sFontName);
 
 	FlagNoAsianGlyphs();
@@ -1188,7 +1128,7 @@ void CFontInfo::UpdateAsianIfNeeded( bool bForceReEval /* = false */ )
 
 						if (!m_pThaiData)
 						{
-							LPCSTR psFailureReason = g_ThaiCodes.Init();
+							const char *psFailureReason = g_ThaiCodes.Init();
 							if (!psFailureReason[0])
 							{
 								m_pThaiData = &g_ThaiCodes;
@@ -1202,6 +1142,8 @@ void CFontInfo::UpdateAsianIfNeeded( bool bForceReEval /* = false */ )
 							}
 						}
 					}
+					break;
+					default:
 					break;
 				}
 
@@ -1439,18 +1381,18 @@ const int CFontInfo::GetCollapsedAsianCode(ulong uiLetter) const
 const int CFontInfo::GetLetterWidth(unsigned int uiLetter)
 {
 	const glyphInfo_t *pGlyph = GetLetter( uiLetter );
-	return pGlyph->width ? pGlyph->width : mGlyphs['.'].width;
+	return pGlyph->width ? pGlyph->width : mGlyphs[(unsigned)'.'].width;
 }
 
 const int CFontInfo::GetLetterHorizAdvance(unsigned int uiLetter)
 {	
 	const glyphInfo_t *pGlyph = GetLetter( uiLetter );
-	return pGlyph->horizAdvance ? pGlyph->horizAdvance : mGlyphs['.'].horizAdvance;
+	return pGlyph->horizAdvance ? pGlyph->horizAdvance : mGlyphs[(unsigned)'.'].horizAdvance;
 }
 
 // ensure any GetFont calls that need SBCS overriding (such as when playing in Russian) have the appropriate stuff done...
 //
-static CFontInfo *GetFont_SBCSOverride(CFontInfo *pFont, Language_e eLanguageSBCS, LPCSTR psLanguageNameSBCS )
+static CFontInfo *GetFont_SBCSOverride(CFontInfo *pFont, Language_e eLanguageSBCS, const char *psLanguageNameSBCS )
 {
 	if ( !pFont->m_bIsFakeAlienLanguage )
 	{
@@ -1607,7 +1549,7 @@ int RE_Font_StrLenPixels(const char *psText, const int iFontHandle, const float 
 		{
 			int iPixelAdvance = curfont->GetLetterHorizAdvance( uiLetter );
 	
-			float fValue = iPixelAdvance * ((uiLetter > g_iNonScaledCharRange) ? fScaleA : fScale);
+			float fValue = iPixelAdvance * ((uiLetter > (unsigned)g_iNonScaledCharRange) ? fScaleA : fScale);
 			iThisWidth += curfont->mbRoundCalcs ? Round( fValue ) : fValue;
 			if (iThisWidth > iMaxWidth)
 			{
@@ -1956,7 +1898,7 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const float *rgba, c
 				pLetter = curfont->GetLetter('.');
 			}
 
-			float fThisScale = uiLetter > g_iNonScaledCharRange ? fScaleA : fScale;
+			float fThisScale = uiLetter > (unsigned)g_iNonScaledCharRange ? fScaleA : fScale;
 
 			// sigh, super-language-specific hack...
 			//
@@ -1978,7 +1920,7 @@ void RE_Font_DrawString(int ox, int oy, const char *psText, const float *rgba, c
 				}
 
 				RE_StretchPic ( x + Round(pLetter->horizOffset * fScale), // float x
-								(uiLetter > g_iNonScaledCharRange) ? y - iAsianYAdjust : y,	// float y
+								(uiLetter > (unsigned)g_iNonScaledCharRange) ? y - iAsianYAdjust : y,	// float y
 								curfont->mbRoundCalcs ? Round(pLetter->width * fThisScale) : pLetter->width * fThisScale,	// float w
 								curfont->mbRoundCalcs ? Round(pLetter->height * fThisScale) : pLetter->height * fThisScale, // float h
 								pLetter->s,						// float s1
@@ -2105,13 +2047,13 @@ void R_ReloadFonts_f(void)
 		//
 		// and re-register our fonts in the same order as before (note that some menu items etc cache the string lengths so really a vid_restart is better, but this is just for my testing)
 		//
-		for (int iFont = 0; iFont < vstrFonts.size(); iFont++)
+		for (size_t font = 0; font < vstrFonts.size(); font++)
 		{
 #ifdef _DEBUG
-			int iNewFontHandle = RE_RegisterFont( vstrFonts[iFont].c_str() );
-			assert( iNewFontHandle == iFont+1 );
+			int iNewFontHandle = RE_RegisterFont( vstrFonts[font].c_str() );
+			assert( (unsigned)iNewFontHandle == font+1 );
 #else
-			RE_RegisterFont( vstrFonts[iFont].c_str() );
+			RE_RegisterFont( vstrFonts[font].c_str() );
 #endif
 		}
 		Com_Printf( "Done.\n" );

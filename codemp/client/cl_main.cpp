@@ -7,6 +7,8 @@
 #include "qcommon/stringed_ingame.h"
 #include <limits.h>
 #include "snd_local.h"
+#include "cl_cgameapi.h"
+#include "cl_uiapi.h"
 
 //rwwRMG - added:
 #include "qcommon/cm_local.h"
@@ -73,6 +75,8 @@ cvar_t	*cl_inGameVideo;
 cvar_t	*cl_serverStatusResendTime;
 cvar_t	*cl_framerate;
 
+cvar_t	*cl_guidServerUniq;
+
 cvar_t	*cl_autolodscale;
 
 #ifndef _WIN32
@@ -85,17 +89,17 @@ vec3_t cl_windVec;
 clientActive_t		cl;
 clientConnection_t	clc;
 clientStatic_t		cls;
-vm_t				*cgvm;
 
 netadr_t rcon_address;
 
 // Structure containing functions exported from refresh DLL
-refexport_t	re = {0};
+refexport_t	*re = NULL;
 static void	*rendererLib = NULL;
 
+const CGhoul2Info NullG2;
 //RAZFIXME: BAD BAD, maybe? had to move it out of ghoul2_shared.h -> CGhoul2Info_v at the least..
 IGhoul2InfoArray &_TheGhoul2InfoArray( void ) {
-	return re.TheGhoul2InfoArray();
+	return re->TheGhoul2InfoArray();
 }
 
 ping_t	cl_pinglist[MAX_PINGREQUESTS];
@@ -223,14 +227,14 @@ void CL_StopRecord_f( void ) {
 CL_DemoFilename
 ==================
 */
-void CL_DemoFilename( char *buf, int bufSize, int protocol ) {
+void CL_DemoFilename( char *buf, int bufSize ) {
 	time_t rawtime;
 	char timeStr[32] = {0}; // should really only reach ~19 chars
 
 	time( &rawtime );
 	strftime( timeStr, sizeof( timeStr ), "%Y-%m-%d_%H-%M-%S", localtime( &rawtime ) ); // or gmtime
 
-	Com_sprintf( buf, bufSize, "demos/demo%s.dm_%d", timeStr, protocol );
+	Com_sprintf( buf, bufSize, "demo%s", timeStr );
 }
 
 /*
@@ -281,7 +285,9 @@ void CL_Record_f( void ) {
 		Com_sprintf (name, sizeof(name), "demos/%s.dm_%d", demoName, PROTOCOL_VERSION );
 	} else {
 		// timestamp the file
-		CL_DemoFilename( name, sizeof( name ), PROTOCOL_VERSION );
+		CL_DemoFilename( demoName, sizeof( demoName ) );
+
+		Com_sprintf (name, sizeof(name), "demos/%s.dm_%d", demoName, PROTOCOL_VERSION );
 
 		if ( FS_FileExists( name ) ) {
 			Com_Printf( "Record: Couldn't create a file\n"); 
@@ -430,7 +436,7 @@ void CL_DemoCompleted( void ) {
 	//after a demo is finished playing instead.
 	CL_Disconnect_f();
 	S_StopAllSounds();
-	VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
+	UIVM_SetActiveMenu( UIMENU_MAIN );
 
 	CL_NextDemo();
 }
@@ -486,6 +492,22 @@ void CL_ReadDemoMessage( void ) {
 	clc.lastPacketTime = cls.realtime;
 	buf.readcount = 0;
 	CL_ParseServerMessage( &buf );
+}
+
+/*
+====================
+CL_CompleteDemoName
+====================
+*/
+static void CL_CompleteDemoName( char *args, int argNum )
+{
+	if( argNum == 2 )
+	{
+		char demoExt[16];
+
+		Com_sprintf(demoExt, sizeof(demoExt), ".dm_%d", PROTOCOL_VERSION);
+		Field_CompleteFilename( "demos", demoExt, qtrue, qtrue );
+	}
 }
 
 /*
@@ -595,7 +617,7 @@ void CL_NextDemo( void ) {
 CL_ShutdownAll
 =====================
 */
-void CL_ShutdownAll( qboolean shutdownRef ) {
+void CL_ShutdownAll( qboolean shutdownRef, qboolean delayFreeVM ) {
 	if(CL_VideoRecording())
 		CL_CloseAVI();
 
@@ -610,15 +632,15 @@ void CL_ShutdownAll( qboolean shutdownRef ) {
 	// clear sounds
 	S_DisableSounds();
 	// shutdown CGame
-	CL_ShutdownCGame();
+	CL_ShutdownCGame(delayFreeVM);
 	// shutdown UI
-	CL_ShutdownUI();
+	CL_ShutdownUI(delayFreeVM);
 
 	// shutdown the renderer
 	if(shutdownRef)
 		CL_ShutdownRef();
-	if ( re.Shutdown ) {
-		re.Shutdown( qfalse );		// don't destroy window or context
+	if ( re && re->Shutdown ) {
+		re->Shutdown( qfalse );		// don't destroy window or context
 	}
 
 	cls.uiStarted = qfalse;
@@ -636,10 +658,10 @@ ways a client gets into a game
 Also called by Com_Error
 =================
 */
-void CL_FlushMemory( void ) {
+void CL_FlushMemory( qboolean delayFreeVM ) {
 
 	// shutdown all the client stuff
-	CL_ShutdownAll( qfalse );
+	CL_ShutdownAll( qfalse, delayFreeVM );
 
 	// if not running a server clear the whole hunk
 	if ( !com_sv_running->integer ) {
@@ -714,6 +736,27 @@ void CL_ClearState (void) {
 	Com_Memset( &cl, 0, sizeof( cl ) );
 }
 
+/*
+====================
+CL_UpdateGUID
+
+update cl_guid using QKEY_FILE and optional prefix
+====================
+*/
+static void CL_UpdateGUID( const char *prefix, int prefix_len )
+{
+	fileHandle_t f;
+	int len;
+
+	len = FS_SV_FOpenFileRead( QKEY_FILE, &f );
+	FS_FCloseFile( f );
+
+	if( len != QKEY_SIZE ) 
+		Cvar_Set( "ja_guid", "" );
+	else
+		Cvar_Set( "ja_guid", Com_MD5File( QKEY_FILE, QKEY_SIZE,
+			prefix, prefix_len ) );
+}
 
 /*
 =====================
@@ -749,8 +792,8 @@ void CL_Disconnect( qboolean showMainMenu ) {
 		clc.demofile = 0;
 	}
 
-	if ( uivm && showMainMenu ) {
-		VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_NONE );
+	if ( cls.uiStarted && showMainMenu ) {
+		UIVM_SetActiveMenu( UIMENU_NONE );
 	}
 
 	SCR_StopCinematic ();
@@ -787,6 +830,8 @@ void CL_Disconnect( qboolean showMainMenu ) {
 		SCR_UpdateScreen( );
 		CL_CloseAVI( );
 	}
+
+	CL_UpdateGUID( NULL, 0 );
 }
 
 
@@ -983,6 +1028,11 @@ void CL_Connect_f( void ) {
 
 	Com_Printf( "%s resolved to %s\n", cls.servername, serverString );
 
+	if( cl_guidServerUniq->integer )
+		CL_UpdateGUID( serverString, strlen( serverString ) );
+	else
+		CL_UpdateGUID( NULL, 0 );
+
 	// if we aren't playing on a lan, we need to authenticate
 	if ( NET_IsLocalAddress( clc.serverAddress ) ) {
 		cls.state = CA_CHALLENGING;
@@ -1003,6 +1053,23 @@ void CL_Connect_f( void ) {
 }
 
 #define MAX_RCON_MESSAGE 1024
+
+/*
+==================
+CL_CompleteRcon
+==================
+*/
+static void CL_CompleteRcon( char *args, int argNum )
+{
+	if( argNum == 2 )
+	{
+		// Skip "rcon "
+		char *p = Com_SkipTokens( args, 1, " " );
+
+		if( p > args )
+			Field_CompleteCommand( p, qtrue, qtrue );
+	}
+}
 
 /*
 =====================
@@ -1105,9 +1172,9 @@ void CL_Vid_Restart_f( void ) {
 	// don't let them loop during the restart
 	S_StopAllSounds();
 	// shutdown the UI
-	CL_ShutdownUI();
+	CL_ShutdownUI(qfalse);
 	// shutdown the CGame
-	CL_ShutdownCGame();
+	CL_ShutdownCGame(qfalse);
 	// shutdown the renderer and clear the renderer interface
 	CL_ShutdownRef();
 	// client is no longer pure untill new checksums are sent
@@ -1278,7 +1345,7 @@ void CL_DownloadsComplete( void ) {
 	// this will also (re)load the UI
 	// if this is a local client then only the client part of the hunk
 	// will be cleared, note that this is done after the hunk mark has been set
-	CL_FlushMemory();
+	CL_FlushMemory(qfalse);
 
 	// initialize the CGame
 	cls.cgameStarted = qtrue;
@@ -1624,10 +1691,10 @@ void CL_ServersResponsePacket( const netadr_t *from, msg_t *msg ) {
 		{
 			buffptr++;
 
-			if (buffend - buffptr < sizeof(addresses[numservers].ip) + sizeof(addresses[numservers].port) + 1)
+			if (buffend - buffptr < (int)(sizeof(addresses[numservers].ip) + sizeof(addresses[numservers].port) + 1))
 				break;
 
-			for(i = 0; i < sizeof(addresses[numservers].ip); i++)
+			for(size_t i = 0; i < sizeof(addresses[numservers].ip); i++)
 				addresses[numservers].ip[i] = *buffptr++;
 
 			addresses[numservers].type = NA_IP;
@@ -2054,10 +2121,10 @@ void CL_Frame ( int msec ) {
 									//	of course this still doesn't work for menus...
 
 	if ( cls.state == CA_DISCONNECTED && !( Key_GetCatcher( ) & KEYCATCH_UI )
-		&& !com_sv_running->integer && uivm ) {
+		&& !com_sv_running->integer && cls.uiStarted ) {
 		// if disconnected, bring up the menu
 		S_StopAllSounds();
-		VM_Call( uivm, UI_SET_ACTIVE_MENU, UIMENU_MAIN );
+		UIVM_SetActiveMenu( UIMENU_MAIN );
 	}
 
 	// if recording an avi, lock to a fixed fps
@@ -2178,11 +2245,20 @@ CL_ShutdownRef
 ============
 */
 void CL_ShutdownRef( void ) {
-	if ( !re.Shutdown ) {
-		return;
+	if ( re )
+	{
+		if ( re->Shutdown )
+		{
+			re->Shutdown( qtrue );
+		}
 	}
-	re.Shutdown( qtrue );
-	Com_Memset( &re, 0, sizeof( re ) );
+
+	re = NULL;
+
+	if ( rendererLib != NULL ) {
+		Sys_UnloadDll (rendererLib);
+		rendererLib = NULL;
+	}
 }
 
 /*
@@ -2192,15 +2268,15 @@ CL_InitRenderer
 */
 void CL_InitRenderer( void ) {
 	// this sets up the renderer and calls R_Init
-	re.BeginRegistration( &cls.glconfig );
+	re->BeginRegistration( &cls.glconfig );
 
 	// load character sets
-	cls.charSetShader = re.RegisterShaderNoMip("gfx/2d/charsgrid_med");
+	cls.charSetShader = re->RegisterShaderNoMip("gfx/2d/charsgrid_med");
 
-	cls.whiteShader = re.RegisterShader( "white" );
-	cls.consoleShader = re.RegisterShader( "console" );
+	cls.whiteShader = re->RegisterShader( "white" );
+	cls.consoleShader = re->RegisterShader( "console" );
 	g_console_field_width = cls.glconfig.vidWidth / SMALLCHAR_WIDTH - 2;
-	kg.g_consoleField.widthInChars = g_console_field_width;
+	g_consoleField.widthInChars = g_console_field_width;
 }
 
 /*
@@ -2248,8 +2324,6 @@ CL_InitRef
 */
 qboolean Com_TheHunkMarkHasBeenMade(void);
 
-//qcommon/vm.cpp
-extern vm_t *currentVM;
 #ifdef _WIN32
 	//win32/win_main.cpp
 	#include "win32/win_local.h"
@@ -2260,8 +2334,8 @@ extern void *gpvCachedMapDiskImage;
 extern qboolean gbUsingCachedMapDataRightNow;
 
 static char *GetSharedMemory( void ) { return cl.mSharedMemory; }
-static vm_t *GetCgameVM( void ) { return cgvm; }
 static vm_t *GetCurrentVM( void ) { return currentVM; }
+static qboolean CGVMLoaded( void ) { return (qboolean)cls.cgameStarted; }
 #ifdef _WIN32
 	static void *GetWinVars( void ) { return (void *)&g_wv; }
 #endif
@@ -2270,9 +2344,6 @@ static void CM_SetCachedMapDiskImage( void *ptr ) { gpvCachedMapDiskImage = ptr;
 static void CM_SetUsingCache( qboolean usingCache ) { gbUsingCachedMapDataRightNow = usingCache; }
 
 // for listen servers
-extern vm_t *currentVM;
-extern vm_t *gvm;
-static vm_t *GetGameVM( void ) { return gvm; }
 extern void SV_GetConfigstring( int index, char *buffer, int bufferSize );
 extern void SV_SetConfigstring( int index, const char *val );
 
@@ -2283,15 +2354,18 @@ CMiniHeap CMiniHeap_singleton(G2_VERT_SPACE_SERVER_SIZE * 1024);
 static CMiniHeap *GetG2VertSpaceServer( void ) {
 	return G2VertSpaceServer;
 }
+
+#define DEFAULT_RENDER_LIBRARY "rd-vanilla"
+
 void CL_InitRef( void ) {
-	refimport_t	ri = {0};
+	static refimport_t ri;
 	refexport_t	*ret;
 	GetRefAPI_t	GetRefAPI;
 	char		dllName[MAX_OSPATH];
 
 	Com_Printf( "----- Initializing Renderer ----\n" );
 
-	cl_renderer = Cvar_Get( "cl_renderer", "rd-vanilla", CVAR_ARCHIVE|CVAR_LATCH );
+	cl_renderer = Cvar_Get( "cl_renderer", DEFAULT_RENDER_LIBRARY, CVAR_ARCHIVE|CVAR_LATCH );
 
 	Com_sprintf( dllName, sizeof( dllName ), "%s_" ARCH_STRING DLL_EXT, cl_renderer->string );
 
@@ -2300,13 +2374,16 @@ void CL_InitRef( void ) {
 		Com_Printf( "failed: trying to load fallback renderer\n" );
 		Cvar_ForceReset( "cl_renderer" );
 
-		Com_sprintf( dllName, sizeof( dllName ), "rd-vanilla_" ARCH_STRING DLL_EXT );
+		Com_sprintf( dllName, sizeof( dllName ), DEFAULT_RENDER_LIBRARY "_" ARCH_STRING DLL_EXT );
 		rendererLib = Sys_LoadDll( dllName, qfalse );
 	}
 
 	if ( !rendererLib ) {
 		Com_Error( ERR_FATAL, "Failed to load renderer" );
 	}
+
+	memset( &ri, 0, sizeof( ri ) );
+
 
 	GetRefAPI = (GetRefAPI_t)Sys_LoadFunction( rendererLib, "GetRefAPI" );
 	if ( !GetRefAPI )
@@ -2365,7 +2442,6 @@ void CL_InitRef( void ) {
 	ri.CM_LeafCluster = CM_LeafCluster;
 	ri.CM_PointLeafnum = CM_PointLeafnum;
 	ri.CM_PointContents = CM_PointContents;
-	ri.VM_Call = VM_Call;
 	ri.Com_TheHunkMarkHasBeenMade = Com_TheHunkMarkHasBeenMade;
 	ri.SV_GetConfigstring = SV_GetConfigstring;
 	ri.SV_SetConfigstring = SV_SetConfigstring;
@@ -2378,9 +2454,11 @@ void CL_InitRef( void ) {
 
 	// g2 data access
 	ri.GetSharedMemory = GetSharedMemory;
-	ri.GetCgameVM = GetCgameVM;
-	ri.GetGameVM = GetGameVM;
+
+	// (c)g vm callbacks
 	ri.GetCurrentVM = GetCurrentVM;
+	ri.CGVMLoaded = CGVMLoaded;
+	ri.CGVM_RagCallback = CGVM_RagCallback;
 
 	// ugly win32 backend
 #ifdef _WIN32
@@ -2411,7 +2489,7 @@ void CL_InitRef( void ) {
 		Com_Error (ERR_FATAL, "Couldn't initialize refresh" );
 	}
 
-	re = *ret;
+	re = ret;
 
 	// unpause so the cgame definately gets a snapshot and renders a frame
 	Cvar_Set( "cl_paused", "0" );
@@ -2522,6 +2600,48 @@ void CL_StopVideo_f( void )
 #define G2_VERT_SPACE_CLIENT_SIZE 256
 
 /*
+===============
+CL_GenerateQKey
+
+test to see if a valid QKEY_FILE exists.  If one does not, try to generate
+it by filling it with 2048 bytes of random data.
+===============
+*/
+
+static void CL_GenerateQKey(void)
+{
+	int len = 0;
+	unsigned char buff[ QKEY_SIZE ];
+	fileHandle_t f;
+
+	len = FS_SV_FOpenFileRead( QKEY_FILE, &f );
+	FS_FCloseFile( f );
+	if( len == QKEY_SIZE ) {
+		Com_Printf( "QKEY found.\n" );
+		return;
+	}
+	else {
+		if( len > 0 ) {
+			Com_Printf( "QKEY file size != %d, regenerating\n",
+				QKEY_SIZE );
+		}
+
+		Com_Printf( "QKEY building random string\n" );
+		Com_RandomBytes( buff, sizeof(buff) );
+
+		f = FS_SV_FOpenFileWrite( QKEY_FILE );
+		if( !f ) {
+			Com_Printf( "QKEY could not open %s for write\n",
+				QKEY_FILE );
+			return;
+		}
+		FS_Write( buff, sizeof(buff), f );
+		FS_FCloseFile( f );
+		Com_Printf( "QKEY generated\n" );
+	}
+}
+
+/*
 ====================
 CL_Init
 ====================
@@ -2582,12 +2702,7 @@ void CL_Init( void ) {
 	cl_autolodscale = Cvar_Get( "cl_autolodscale", "1", CVAR_ARCHIVE );
 
 	cl_conXOffset = Cvar_Get ("cl_conXOffset", "0", 0);
-#ifdef MACOS_X
-        // In game video is REALLY slow in Mac OS X right now due to driver slowness
-	cl_inGameVideo = Cvar_Get ("r_inGameVideo", "0", CVAR_ARCHIVE);
-#else
 	cl_inGameVideo = Cvar_Get ("r_inGameVideo", "1", CVAR_ARCHIVE);
-#endif
 
 	cl_serverStatusResendTime = Cvar_Get ("cl_serverStatusResendTime", "750", 0);
 
@@ -2611,6 +2726,8 @@ void CL_Init( void ) {
 
 	Cvar_Get( "cl_maxPing", "800", CVAR_ARCHIVE );
 
+	cl_guidServerUniq = Cvar_Get ("cl_guidServerUniq", "1", CVAR_ARCHIVE);
+
 #ifndef _WIN32
 	// ~ and `, as keys and characters
 	cl_consoleKeys = Cvar_Get( "cl_consoleKeys", "~ ` 0x7e 0x60", CVAR_ARCHIVE);
@@ -2620,10 +2737,10 @@ void CL_Init( void ) {
 	Cvar_Get ("name", "Padawan", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("rate", "25000", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("snaps", "40", CVAR_USERINFO | CVAR_ARCHIVE );
-	Cvar_Get ("model", "kyle/default", CVAR_USERINFO | CVAR_ARCHIVE );
+	Cvar_Get ("model", DEFAULT_MODEL"/default", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("forcepowers", "7-1-032330000000001333", CVAR_USERINFO | CVAR_ARCHIVE );
-//	Cvar_Get ("g_redTeam", "Empire", CVAR_SERVERINFO | CVAR_ARCHIVE);
-//	Cvar_Get ("g_blueTeam", "Rebellion", CVAR_SERVERINFO | CVAR_ARCHIVE);
+//	Cvar_Get ("g_redTeam", DEFAULT_REDTEAM_NAME, CVAR_SERVERINFO | CVAR_ARCHIVE);
+//	Cvar_Get ("g_blueTeam", DEFAULT_BLUETEAM_NAME, CVAR_SERVERINFO | CVAR_ARCHIVE);
 	Cvar_Get ("color1",  "4", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("color2", "4", CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("handicap", "100", CVAR_USERINFO | CVAR_ARCHIVE );
@@ -2633,7 +2750,7 @@ void CL_Init( void ) {
 	Cvar_Get ("cg_predictItems", "1", CVAR_USERINFO | CVAR_ARCHIVE );
 
 	//default sabers
-	Cvar_Get ("saber1",  "single_1", CVAR_USERINFO | CVAR_ARCHIVE );
+	Cvar_Get ("saber1",  DEFAULT_SABER, CVAR_USERINFO | CVAR_ARCHIVE );
 	Cvar_Get ("saber2",  "none", CVAR_USERINFO | CVAR_ARCHIVE );
 
 	//skin color
@@ -2651,6 +2768,7 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("globalservers", CL_GlobalServers_f);
 	Cmd_AddCommand ("record", CL_Record_f);
 	Cmd_AddCommand ("demo", CL_PlayDemo_f);
+	Cmd_SetCommandCompletionFunc( "demo", CL_CompleteDemoName );
 	Cmd_AddCommand ("stoprecord", CL_StopRecord_f);
 	Cmd_AddCommand ("configstrings", CL_Configstrings_f);
 	Cmd_AddCommand ("clientinfo", CL_Clientinfo_f);
@@ -2662,6 +2780,7 @@ void CL_Init( void ) {
 	Cmd_AddCommand ("reconnect", CL_Reconnect_f);
 	Cmd_AddCommand ("localservers", CL_LocalServers_f);
 	Cmd_AddCommand ("rcon", CL_Rcon_f);
+	Cmd_SetCommandCompletionFunc( "rcon", CL_CompleteRcon );
 	Cmd_AddCommand ("ping", CL_Ping_f );
 	Cmd_AddCommand ("serverstatus", CL_ServerStatus_f );
 	Cmd_AddCommand ("showip", CL_ShowIP_f );
@@ -2681,6 +2800,10 @@ void CL_Init( void ) {
 	Cvar_Set( "cl_running", "1" );
 
 	G2VertSpaceClient = new CMiniHeap(G2_VERT_SPACE_CLIENT_SIZE * 1024);
+
+	CL_GenerateQKey();
+	Cvar_Get( "ja_guid", "", CVAR_USERINFO | CVAR_ROM );
+	CL_UpdateGUID( NULL, 0 );
 
 //	Com_Printf( "----- Client Initialization Complete -----\n" );
 }
@@ -2712,7 +2835,7 @@ void CL_Shutdown( void ) {
 	CL_Disconnect( qtrue );
 
 	// RJ: added the shutdown all to close down the cgame (to free up some memory, such as in the fx system)
-	CL_ShutdownAll( qtrue );
+	CL_ShutdownAll( qtrue, qfalse );
 
 	S_Shutdown();
 	//CL_ShutdownUI();
@@ -2803,7 +2926,7 @@ CL_ServerInfoPacket
 void CL_ServerInfoPacket( netadr_t from, msg_t *msg ) {
 	int		i, type;
 	char	info[MAX_INFO_STRING];
-	char*	str;
+
 	char	*infoString;
 	int		prot;
 
@@ -2834,18 +2957,15 @@ void CL_ServerInfoPacket( netadr_t from, msg_t *msg ) {
 			{
 				case NA_BROADCAST:
 				case NA_IP:
-					str = "udp";
 					type = 1;
 					break;
 
 				case NA_IPX:
 				case NA_BROADCAST_IPX:
-					str = "ipx";
 					type = 2;
 					break;
 
 				default:
-					str = "???";
 					type = 0;
 					break;
 			}
@@ -2945,7 +3065,7 @@ serverStatus_t *CL_GetServerStatus( netadr_t from ) {
 CL_ServerStatus
 ===================
 */
-int CL_ServerStatus( char *serverAddress, char *serverStatusString, int maxLen ) {
+int CL_ServerStatus( const char *serverAddress, char *serverStatusString, int maxLen ) {
 	int i;
 	netadr_t	to;
 	serverStatus_t *serverStatus;

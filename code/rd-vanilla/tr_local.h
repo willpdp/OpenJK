@@ -20,7 +20,7 @@ This file is part of Jedi Academy.
 #define TR_LOCAL_H
 
 
-#include "../game/q_shared.h"
+#include "../qcommon/q_shared.h"
 #include "../qcommon/qfiles.h"
 #include "../renderer/tr_public.h"
 #include "../renderer/mdx_format.h"
@@ -94,10 +94,8 @@ typedef struct {
 	int			num_entities;
 	trRefEntity_t	*entities;
 
-#ifndef VV_LIGHTING
 	int			num_dlights;
 	struct dlight_s	*dlights;
-#endif
 
 	int			numPolys;
 	struct srfPoly_s	*polys;
@@ -121,7 +119,7 @@ typedef struct {
 typedef struct image_s {
 	char		imgName[MAX_QPATH];		// game path, including extension
 	int			frameUsed;			// for texture usage in frame statistics
-	USHORT		width, height;				// source image
+	word		width, height;				// source image
 //	int			imgfileSize;
 
 	GLuint		texnum;					// gl texture binding
@@ -376,10 +374,6 @@ typedef struct {
 typedef struct {
 	bool			active;
 	bool			isDetail;
-#ifdef VV_LIGHTING
-	byte			isSpecular;
-	byte			isBumpMap;
-#endif 
 	byte			index;						// index of stage
 	byte			lightmapStyle;
 	
@@ -1214,6 +1208,7 @@ extern	cvar_t	*r_skipBackEnd;
 extern	cvar_t	*r_ignoreGLErrors;
 
 extern	cvar_t	*r_overBrightBits;
+extern	cvar_t	*r_mapOverBrightBits;
 
 extern	cvar_t	*r_debugSurface;
 extern	cvar_t	*r_simpleMipMaps;
@@ -1269,11 +1264,6 @@ int R_CullPointAndRadius( const vec3_t pt, float radius );
 int R_CullLocalPointAndRadius( const vec3_t pt, float radius );
 
 void R_RotateForEntity( const trRefEntity_t *ent, const viewParms_t *viewParms, orientationr_t *ori );
-
-#ifdef VV_LIGHTING
-void R_SetupEntityLightingGrid( trRefEntity_t *ent );
-void R_AddWorldSurface( msurface_t *surf, int dlightBits, qboolean noViewCount = qfalse );
-#endif
 
 /*
 ** GL wrapper/helper functions
@@ -1409,7 +1399,8 @@ void		GLimp_Init( void );
 void		GLimp_Shutdown( void );
 void		GLimp_EndFrame( void );
 
-void		GLimp_LogComment( char *comment );
+void		GLimp_LogComment( const char *comment );
+void		GLimp_Minimize( void );
 
 void		GLimp_SetGamma( unsigned char red[256], 
 						    unsigned char green[256],
@@ -1593,7 +1584,7 @@ SCENE GENERATION
 ============================================================
 */
 
-void R_ToggleSmpFrame( void );
+void R_InitNextFrame( void );
 
 void RE_ClearScene( void );
 void RE_AddRefEntityToScene( const refEntity_t *ent );
@@ -1619,7 +1610,9 @@ void R_AddAnimSurfaces( trRefEntity_t *ent );
 /*
 Ghoul2 Insert Start
 */
+#ifdef _MSC_VER
 #pragma warning (disable: 4512)	//default assignment operator could not be gened
+#endif
 class CBoneCache;
 
 class CRenderableSurface
@@ -1729,7 +1722,6 @@ RENDERER BACK END FUNCTIONS
 =============================================================
 */
 
-void RB_RenderThread( void );
 void RB_ExecuteRenderCommands( const void *data );
 
 /*
@@ -1834,13 +1826,10 @@ typedef enum {
 #define	MAX_POLYVERTS	( MAX_POLYS * 4 )
 
 // all of the information needed by the back end must be
-// contained in a backEndData_t.  left over from SMP duplications, 
-// could optimize to point directly at frontend data instead of copying?
+// contained in a backEndData_t.
 typedef struct {
 	drawSurf_t	drawSurfs[MAX_DRAWSURFS];
-#ifndef VV_LIGHTING
 	dlight_t	dlights[MAX_DLIGHTS];
-#endif
 	trRefEntity_t	entities[MAX_ENTITIES];
 	srfPoly_t	polys[MAX_POLYS];
 	polyVert_t	polyVerts[MAX_POLYVERTS];

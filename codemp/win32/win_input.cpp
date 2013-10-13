@@ -7,7 +7,7 @@
 #include "win_local.h"
 
 
-typedef struct {
+typedef struct WinMouseVars_s {
 	int			oldButtonState;
 
 	qboolean	mouseActive;
@@ -26,7 +26,7 @@ static void IN_ShutdownMIDI( void );
 
 #define MAX_MIDIIN_DEVICES	8
 
-typedef struct {
+typedef struct MidiInfo_s {
 	int			numDevices;
 	MIDIINCAPS	caps[MAX_MIDIIN_DEVICES];
 
@@ -40,7 +40,7 @@ static MidiInfo_t s_midiInfo;
 //
 #define	JOY_MAX_AXES		6				// X, Y, Z, R, U, V
 
-typedef struct {
+typedef struct joystickInfo_s {
 	qboolean	avail;
 	int			id;			// joystick number
 	JOYCAPS		jc;
@@ -793,7 +793,7 @@ void IN_Shutdown( void ) {
 	IN_ShutdownDIMouse();
 	IN_ShutdownMIDI();
 #ifndef NO_XINPUT
-	if( in_joystick->integer == 2 )
+	if( in_joystick && in_joystick->integer == 2 )
 	{
 		IN_UnloadXInput();
 	}
@@ -1303,7 +1303,7 @@ XI_ThumbFloat
 Gets the percentage going one way or the other (as normalized float)
 ===========
 */
-float ID_INLINE XI_ThumbFloat( signed short thumbValue )
+float QINLINE XI_ThumbFloat( signed short thumbValue )
 {
 	return (thumbValue < 0) ? (thumbValue / 32768.0f) : (thumbValue / 32767.0f);
 }

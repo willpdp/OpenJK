@@ -1,7 +1,7 @@
 #pragma once
 
 #include "qcommon/qfiles.h"
-#include "renderer/tr_public.h"
+#include "rd-common/tr_public.h"
 
 #ifdef _WIN32
 	#include "qgl.h"
@@ -14,9 +14,7 @@
 #define GL_INDEX_TYPE		GL_UNSIGNED_INT
 typedef unsigned int glIndex_t;
 
-#if (!defined _WIN32 || defined MINGW32)//#ifndef _WIN32
-	#include "qcommon/platform.h"
-#endif
+#define LL(x) x=LittleLong(x)
 
 //for 3d textures -rww
 #define GL_TEXTURE_3D                     0x806F
@@ -72,7 +70,7 @@ typedef struct
 
 // a trRefEntity_t has all the information passed in by
 // the client game, as well as some locally derived info
-typedef struct {
+typedef struct trRefEntity_s {
 	refEntity_t	e;
 
 	float		axisLength;		// compensate for non-normalized axis
@@ -87,7 +85,7 @@ typedef struct {
 } trRefEntity_t;
 
 
-typedef struct {
+typedef struct orientationr_s {
 	vec3_t		origin;			// in world coordinates
 	vec3_t		axis[3];		// orientation in world
 	vec3_t		viewOrigin;		// viewParms->or.origin in local coordinates
@@ -97,7 +95,7 @@ typedef struct {
 
 typedef struct image_s {
 	char		imgName[MAX_QPATH];		// game path, including extension
-	USHORT		width, height;	// after power of two and picmip but not including clamp to MAX_TEXTURE_SIZE
+	word		width, height;	// after power of two and picmip but not including clamp to MAX_TEXTURE_SIZE
 	GLuint		texnum;					// gl texture binding
 
 	int			frameUsed;			// for texture usage in frame statistics
@@ -245,7 +243,7 @@ typedef enum {
 	GLFOGOVERRIDE_MAX
 } EGLFogOverride;
 
-typedef struct {
+typedef struct waveForm_s {
 	genFunc_t	func;
 
 	float base;
@@ -268,7 +266,7 @@ typedef enum {
 } texMod_t;
 
 #define	MAX_SHADER_DEFORMS	3
-typedef struct {
+typedef struct deformStage_s {
 	deform_t	deformation;			// vertex coordinate modification type
 
 	vec3_t		moveVector;
@@ -281,7 +279,7 @@ typedef struct {
 } deformStage_t;
 
 
-typedef struct {
+typedef struct texModInfo_s {
 	texMod_t		type;
 
 	// used for TMOD_TURBULENT and TMOD_STRETCH
@@ -330,7 +328,7 @@ typedef struct surfaceSprite_s
 	int				facing;		// Hangdown on vertical sprites, faceup on others.
 } surfaceSprite_t;
 
-typedef struct {
+typedef struct textureBundle_s {
 	image_t			*image;
 
 	texCoordGen_t	tcGen;
@@ -352,13 +350,10 @@ typedef struct {
 
 #define NUM_TEXTURE_BUNDLES 2
 
-typedef struct {
+typedef struct shaderStage_s {
 	bool			active;
 	bool			isDetail;
-#ifdef VV_LIGHTING
-	byte			isSpecular;
-	byte			isBumpMap;
-#endif 
+
 	byte			index;						// index of stage
 	byte			lightmapStyle;
 	
@@ -404,12 +399,12 @@ typedef enum {
 	FP_GLFOG
 } fogPass_t;
 
-typedef struct {
+typedef struct skyParms_s {
 	float		cloudHeight;
 	image_t		*outerbox[6];
 } skyParms_t;
 
-typedef struct {
+typedef struct fogParms_s {
 	vec3_t	color;
 	float	depthForOpaque;
 } fogParms_t;
@@ -492,8 +487,7 @@ typedef struct shaderState_s {
 Ghoul2 Insert Start
 */
  // bogus little registration system for hit and location based damage files in hunk memory
-typedef struct
-{
+typedef struct hitMatReg_s {
 	byte	*loc;
 	int		width;
 	int		height;
@@ -511,7 +505,7 @@ Ghoul2 Insert End
 
 // trRefdef_t holds everything that comes in refdef_t,
 // as well as the locally generated scene information
-typedef struct {
+typedef struct trRefdef_s {
 	int			x, y, width, height;
 	float		fov_x, fov_y;
 	vec3_t		vieworg;
@@ -534,18 +528,14 @@ typedef struct {
 	trRefEntity_t	*entities;
 	trMiniRefEntity_t	*miniEntities;
 
-#ifndef VV_LIGHTING
 	int			num_dlights;
 	struct dlight_s	*dlights;
-#endif
 
 	int			numPolys;
 	struct srfPoly_s	*polys;
 
 	int			numDrawSurfs;
 	struct drawSurf_s	*drawSurfs;
-
-
 } trRefdef_t;
 
 
@@ -557,7 +547,7 @@ typedef struct skinSurface_s {
 	shader_t	*shader;
 } skinSurface_t;
 
-typedef struct {
+typedef struct fog_s {
 	int			originalBrushNumber;
 	vec3_t		bounds[2];
 
@@ -570,7 +560,7 @@ typedef struct {
 	float		surface[4];
 } fog_t;
 
-typedef struct {
+typedef struct viewParms_s {
 	orientationr_t	ori;				// Can't use "or" as it is a reserved word with gcc DREWS 2/2/2002
 	orientationr_t	world;
 	vec3_t		pvsOrigin;			// may be different than or.origin for portals
@@ -691,7 +681,7 @@ typedef struct srfGridMesh_s {
 	drawVert_t		verts[1];		// variable sized
 } srfGridMesh_t;
 
-typedef struct {
+typedef struct srfSurfaceFace_s {
 	surfaceType_t	surfaceType;
 	cplane_t	plane;
 
@@ -707,7 +697,7 @@ typedef struct {
 } srfSurfaceFace_t;
 
 // misc_models in maps are turned into direct geometry by q3map
-typedef struct {
+typedef struct srfTriangles_s {
 	surfaceType_t	surfaceType;
 
 	// dynamic lighting information
@@ -808,7 +798,7 @@ typedef struct
 } mgrid_t;
 
 
-typedef struct {
+typedef struct world_s {
 	char		name[MAX_QPATH];		// ie: maps/tim_dm2.bsp
 	char		baseName[MAX_QPATH];	// ie: tim_dm2
 
@@ -875,8 +865,6 @@ void		R_ModelBounds( qhandle_t handle, vec3_t mins, vec3_t maxs );
 
 void		R_Modellist_f (void);
 
-extern refimport_t ri;
-
 //====================================================
 
 
@@ -912,7 +900,7 @@ extern	int			gl_filter_min, gl_filter_max;
 /*
 ** performanceCounters_t
 */
-typedef struct {
+typedef struct frontEndCounters_s {
 	int		c_sphere_cull_patch_in, c_sphere_cull_patch_clip, c_sphere_cull_patch_out;
 	int		c_box_cull_patch_in, c_box_cull_patch_clip, c_box_cull_patch_out;
 	int		c_sphere_cull_md3_in, c_sphere_cull_md3_clip, c_sphere_cull_md3_out;
@@ -930,7 +918,7 @@ typedef struct {
 
 
 // the renderer front end should never modify glstate_t
-typedef struct {
+typedef struct glstate_s {
 	int			currenttextures[2];
 	int			currenttmu;
 	qboolean	finishCalled;
@@ -940,7 +928,7 @@ typedef struct {
 } glstate_t;
 
 
-typedef struct {
+typedef struct backEndCounters_s {
 	int		c_surfaces, c_shaders, c_vertexes, c_indexes, c_totalIndexes;
 	float	c_overDraw;
 	
@@ -956,7 +944,7 @@ typedef struct {
 
 // all state modified by the back end is seperated
 // from the front end state
-typedef struct {
+typedef struct backEndState_s {
 	trRefdef_t	refdef;
 	viewParms_t	viewParms;
 	orientationr_t	ori;		// Can't use or as it is a c++ reserved word DREWS 2/2/2002
@@ -986,7 +974,7 @@ typedef struct {
 	#include "../win32/win_local.h"
 #endif
 
-typedef struct {
+typedef struct trGlobals_s {
 	qboolean				registered;		// cleared at shutdown, set at beginRegistration
 
 	int						visCount;		// incremented every time a new vis cluster is entered
@@ -1269,9 +1257,6 @@ Ghoul2 Insert End
 */
 //====================================================================
 
-float R_NoiseGet4f( float x, float y, float z, float t );
-void  R_NoiseInit( void );
-
 void R_SwapBuffers( int );
 
 void R_RenderView( viewParms_t *parms );
@@ -1300,11 +1285,6 @@ int R_CullPointAndRadius( const vec3_t origin, float radius );
 int R_CullLocalPointAndRadius( const vec3_t origin, float radius );
 
 void R_RotateForEntity( const trRefEntity_t *ent, const viewParms_t *viewParms, orientationr_t *ori );
-
-#ifdef VV_LIGHTING
-void R_SetupEntityLightingGrid( trRefEntity_t *ent );
-void R_AddWorldSurface( msurface_t *surf, int dlightBits, qboolean noViewCount = qfalse );
-#endif
 
 /*
 ** GL wrapper/helper functions
@@ -1392,8 +1372,6 @@ model_t		*R_AllocModel( void );
 
 void    	R_Init( void );
 
-void R_LoadImage( const char *name, byte **pic, int *width, int *height, GLenum *format );
-
 image_t		*R_FindImageFile( const char *name, qboolean mipmap, qboolean allowPicmip, qboolean allowTC, int glWrapClampMode );
 
 image_t		*R_CreateImage( const char *name, const byte *pic, int width, int height, GLenum format, qboolean mipmap, qboolean allowPicmip, qboolean allowTC, int wrapClampMode, bool bRectangle = false );
@@ -1406,7 +1384,6 @@ void		R_GammaCorrect( byte *buffer, int bufSize );
 void	R_ImageList_f( void );
 void	R_SkinList_f( void );
 void	R_FontList_f( void );
-void	R_ScreenShot_f( void );
 
 void	R_InitFogTable( void );
 float	R_FogFactor( float s, float t );
@@ -1645,7 +1622,7 @@ SCENE GENERATION
 ============================================================
 */
 
-void R_ToggleSmpFrame( void );
+void R_InitNextFrame( void );
 
 void RE_ClearScene( void );
 void RE_ClearDecals ( void );
@@ -1670,7 +1647,9 @@ void R_AddAnimSurfaces( trRefEntity_t *ent );
 /*
 Ghoul2 Insert Start
 */
+#ifdef _MSC_VER
 #pragma warning (disable: 4512)	//default assignment operator could not be gened
+#endif
 class CRenderableSurface
 {
 public:
@@ -1773,7 +1752,6 @@ RENDERER BACK END FUNCTIONS
 =============================================================
 */
 
-void RB_RenderThread( void );
 void RB_ExecuteRenderCommands( const void *data );
 
 /*
@@ -1786,22 +1764,22 @@ RENDERER BACK END COMMAND QUEUE
 
 #define	MAX_RENDER_COMMANDS	0x40000
 
-typedef struct {
+typedef struct renderCommandList_s {
 	byte	cmds[MAX_RENDER_COMMANDS];
 	int		used;
 } renderCommandList_t;
 
-typedef struct {
+typedef struct setColorCommand_s {
 	int		commandId;
 	float	color[4];
 } setColorCommand_t;
 
-typedef struct {
+typedef struct drawBufferCommand_s {
 	int		commandId;
 	int		buffer;
 } drawBufferCommand_t;
 
-typedef struct {
+typedef struct subImageCommand_s {
 	int		commandId;
 	image_t	*image;
 	int		width;
@@ -1809,16 +1787,16 @@ typedef struct {
 	void	*data;
 } subImageCommand_t;
 
-typedef struct {
+typedef struct swapBuffersCommand_s {
 	int		commandId;
 } swapBuffersCommand_t;
 
-typedef struct {
+typedef struct endFrameCommand_s {
 	int		commandId;
 	int		buffer;
 } endFrameCommand_t;
 
-typedef struct {
+typedef struct stretchPicCommand_s {
 	int		commandId;
 	shader_t	*shader;
 	float	x, y;
@@ -1827,7 +1805,7 @@ typedef struct {
 	float	s2, t2;
 } stretchPicCommand_t;
 
-typedef struct {
+typedef struct rotatePicCommand_s {
 	int		commandId;
 	shader_t	*shader;
 	float	x, y;
@@ -1837,7 +1815,7 @@ typedef struct {
 	float	a;
 } rotatePicCommand_t;
 
-typedef struct {
+typedef struct drawSurfsCommand_s {
 	int		commandId;
 	trRefdef_t	refdef;
 	viewParms_t	viewParms;
@@ -1845,7 +1823,7 @@ typedef struct {
 	int		numDrawSurfs;
 } drawSurfsCommand_t;
  
-typedef struct { 
+typedef struct videoFrameCommand_s { 
 	int            commandId; 
 	int            width; 
 	int            height; 
@@ -1876,14 +1854,10 @@ typedef enum {
 #define	MAX_POLYVERTS	3000
 
 // all of the information needed by the back end must be
-// contained in a backEndData_t.  This entire structure is
-// duplicated so the front and back end can run in parallel
-// on an SMP machine
-typedef struct {
+// contained in a backEndData_t.
+typedef struct backEndData_s {
 	drawSurf_t	drawSurfs[MAX_DRAWSURFS];
-#ifndef VV_LIGHTING
 	dlight_t	dlights[MAX_DLIGHTS];
-#endif
 	trRefEntity_t	entities[MAX_REFENTITIES];
 	trMiniRefEntity_t	miniEntities[MAX_MINI_ENTITIES];
 	srfPoly_t	*polys;//[MAX_POLYS];
@@ -1900,10 +1874,7 @@ extern	backEndData_t	*backEndData;
 void *R_GetCommandBuffer( int bytes );
 void RB_ExecuteRenderCommands( const void *data );
 
-void R_InitCommandBuffers( void );
-void R_ShutdownCommandBuffers( void );
-
-void R_SyncRenderThread( void );
+void R_IssuePendingRenderCommands( void );
 
 void R_AddDrawSurfCmd( drawSurf_t *drawSurfs, int numDrawSurfs );
 
@@ -1916,10 +1887,7 @@ void RE_RotatePic2 ( float x, float y, float w, float h,
 					  float s1, float t1, float s2, float t2,float a, qhandle_t hShader );
 void RE_BeginFrame( stereoFrame_t stereoFrame );
 void RE_EndFrame( int *frontEndMsec, int *backEndMsec );
-void RE_SaveJPG(char * filename, int quality, int image_width, int image_height, byte *image_buffer, int padding);
-size_t RE_SaveJPGToBuffer(byte *buffer, size_t bufSize, int quality, int image_width, int image_height, byte *image_buffer, int padding);
 void RE_TakeVideoFrame( int width, int height, byte *captureBuffer, byte *encodeBuffer, qboolean motionJpeg );
-int RE_SavePNG( char *filename, byte *buf, size_t width, size_t height, int byteDepth );
 
 /*
 Ghoul2 Insert Start
@@ -1951,6 +1919,6 @@ typedef struct decalPoly_s
 // tr_surfacesprites
 void RB_DrawSurfaceSprites( shaderStage_t *stage, shaderCommands_t *input);
 
-extern refexport_t re;
+extern refimport_t *ri;
 
 qboolean ShaderHashTableExists(void);

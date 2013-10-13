@@ -887,16 +887,12 @@ int PM_SaberLockWinAnim( qboolean victory, qboolean superBreak )
 }
 
 // Need to avoid nesting namespaces!
-#ifdef QAGAME //including game headers on cgame is FORBIDDEN ^_^
-
-#include "g_local.h"
-extern void NPC_SetAnim(gentity_t *ent, int setAnimParts, int anim, int setAnimFlags);
-extern gentity_t g_entities[];
-
-#elif defined CGAME
-
-#include "cgame/cg_local.h" //ahahahahhahahaha@$!$!
-
+#ifdef _GAME //including game headers on cgame is FORBIDDEN ^_^
+	#include "g_local.h"
+	extern void NPC_SetAnim(gentity_t *ent, int setAnimParts, int anim, int setAnimFlags);
+	extern gentity_t g_entities[];
+#elif defined(_CGAME)
+	#include "cgame/cg_local.h" //ahahahahhahahaha@$!$!
 #endif
 
 int PM_SaberLockLoseAnim( playerState_t *genemy, qboolean victory, qboolean superBreak )
@@ -1017,7 +1013,7 @@ int PM_SaberLockLoseAnim( playerState_t *genemy, qboolean victory, qboolean supe
 	}
 	if ( loseAnim != -1 )
 	{
-#ifdef QAGAME
+#ifdef _GAME
 		NPC_SetAnim( &g_entities[genemy->clientNum], SETANIM_BOTH, loseAnim, SETANIM_FLAG_OVERRIDE|SETANIM_FLAG_HOLD );
 		genemy->weaponTime = genemy->torsoTimer;// + 250;
 #endif
@@ -1071,7 +1067,7 @@ int PM_SaberLockResultAnim( playerState_t *duelist, qboolean superBreak, qboolea
 	}
 
 	//play the anim and hold it
-#ifdef QAGAME
+#ifdef _GAME
 	//server-side: set it on the other guy, too
 	if ( duelist->clientNum == pm->ps->clientNum )
 	{//me
@@ -1099,7 +1095,7 @@ int PM_SaberLockResultAnim( playerState_t *duelist, qboolean superBreak, qboolea
 			G_SetOrigin(saberent, duelist->currentOrigin);
 		}
 		*/
-#ifdef QAGAME
+#ifdef _GAME
 		if ( 1 )
 #else
 		if ( duelist->clientNum == pm->ps->clientNum )
@@ -1112,7 +1108,7 @@ int PM_SaberLockResultAnim( playerState_t *duelist, qboolean superBreak, qboolea
 		}
 	}
 
-#ifdef QAGAME
+#ifdef _GAME
 	if ( 1 )
 #else
 	if ( duelist->clientNum == pm->ps->clientNum )
@@ -1135,23 +1131,19 @@ int PM_SaberLockResultAnim( playerState_t *duelist, qboolean superBreak, qboolea
 
 void PM_SaberLockBreak( playerState_t *genemy, qboolean victory, int strength )
 {
-	int	winAnim = BOTH_STAND1, loseAnim = BOTH_STAND1;
 	//qboolean punishLoser = qfalse;
 	qboolean noKnockdown = qfalse;
-	qboolean singleVsSingle = qtrue;
 	qboolean superBreak = (strength+pm->ps->saberLockHits > Q_irand(2,4));
 
-	winAnim = PM_SaberLockWinAnim( victory, superBreak );
-	if ( winAnim != -1 )
-	{//a single vs. single break
-		loseAnim = PM_SaberLockLoseAnim( genemy, victory, superBreak );
-	}
-	else
-	{//must be a saberlock that's not between single and single...
-		singleVsSingle = qfalse;
-		winAnim = PM_SaberLockResultAnim( pm->ps, superBreak, qtrue );
+	//a single vs. single break
+	if ( PM_SaberLockWinAnim( victory, superBreak ) != -1 )
+		PM_SaberLockLoseAnim( genemy, victory, superBreak );
+
+	//must be a saberlock that's not between single and single...
+	else {
+		PM_SaberLockResultAnim( pm->ps, superBreak, qtrue );
 		pm->ps->weaponstate = WEAPON_FIRING;
-		loseAnim = PM_SaberLockResultAnim( genemy, superBreak, qfalse );
+		PM_SaberLockResultAnim( genemy, superBreak, qfalse );
 		genemy->weaponstate = WEAPON_READY;
 	}
 
@@ -2735,7 +2727,7 @@ qboolean BG_SuperBreakLoseAnim( int anim );
 qboolean BG_SuperBreakWinAnim( int anim );
 void PM_WeaponLightsaber(void)
 {
-	int			addTime,amount;
+	int			addTime;
 	qboolean	delayed_fire = qfalse;
 	int			anim=-1, curmove, newmove=LS_NONE;
 
@@ -3687,8 +3679,6 @@ weapChecks:
 
 	pm->ps->weaponstate = WEAPON_FIRING;
 
-	amount = weaponData[pm->ps->weapon].energyPerShot;
-
 	addTime = pm->ps->weaponTime;
 
 	pm->ps->saberAttackSequence = pm->ps->torsoAnim;
@@ -4000,7 +3990,7 @@ void PM_SetSaberMove(short newMove)
 saberInfo_t *BG_MySaber( int clientNum, int saberNum )
 {
 	//returns a pointer to the requested saberNum
-#ifdef QAGAME
+#ifdef _GAME
 	gentity_t *ent = &g_entities[clientNum];
 	if ( ent->inuse && ent->client )
 	{
@@ -4011,7 +4001,7 @@ saberInfo_t *BG_MySaber( int clientNum, int saberNum )
 		}
 		return &ent->client->saber[saberNum];
 	}
-#elif defined CGAME
+#elif defined(_CGAME)
 	clientInfo_t *ci = NULL;
 	if (clientNum < MAX_CLIENTS)
 	{
