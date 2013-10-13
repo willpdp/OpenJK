@@ -146,7 +146,7 @@ void QDECL Com_Printf( const char *fmt, ... ) {
 			rd_flush(rd_buffer);
 			*rd_buffer = 0;
 		}
-		Q_strcat(rd_buffer, rd_buffersize, msg);
+		Q_strcat (rd_buffer, strlen(rd_buffer), msg);
 		return;
 	}
 
