@@ -5,8 +5,7 @@
 #include "win_local.h"
 
 #ifdef MINGW32
-//copied from wine's winuser (LGPL)
-#define SPI_SCREENSAVERRUNNING    SPI_SETSCREENSAVERRUNNING
+#include "../win32/mingw32.h"
 #endif
 
 WinVars_t	g_wv;

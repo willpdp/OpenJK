@@ -113,7 +113,7 @@
 #endif
 
 // this is the define for determining if we have an asm version of a C function
-#if (defined(_M_IX86) || defined(__i386__)) && !defined(__sun__) && !defined(C_ONLY)
+#if (defined(_M_IX86) || defined(__i386__)) && !defined(__sun__)
 	#define id386	1
 #else
 	#define id386	0

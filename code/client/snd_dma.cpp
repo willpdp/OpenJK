@@ -32,7 +32,7 @@ This file is part of Jedi Academy.
 #include "snd_music.h"
 
 #ifdef MINGW32
-#define offsetof(type, member)  __builtin_offsetof (type, member)
+#include "../../code/mingw32.h"
 #endif
 
 static void S_Play_f(void);

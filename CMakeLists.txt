@@ -93,7 +93,7 @@ set(SPDir "${CMAKE_SOURCE_DIR}/code")
 set(MPDir "${CMAKE_SOURCE_DIR}/codemp")
 set(JK2SPDir "${CMAKE_SOURCE_DIR}/codeJK2")
 
-# OS defines
+# Common settings
 if(WIN32)
 	if(WIN64)
 		if(MSVC)
