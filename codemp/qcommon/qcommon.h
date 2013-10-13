@@ -5,6 +5,10 @@
 #include "qcommon/cm_public.h"
 #include "qcommon/q_shared.h"
 
+#ifdef MINGW32
+#include "../win32/mingw32.h"
+#endif
+
 //============================================================================
 
 //

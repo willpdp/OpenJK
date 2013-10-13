@@ -17,6 +17,7 @@
 
 #ifdef MINGW32
 #include <malloc.h>
+#include "mingw32.h"
 #endif
 
 #define MEM_THRESHOLD 128*1024*1024

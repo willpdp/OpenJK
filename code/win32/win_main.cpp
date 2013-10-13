@@ -22,8 +22,6 @@ This file is part of Jedi Academy.
 //
 #include "../server/exe_headers.h"
 
-#include "../qcommon/platform.h"
-
 #include "../client/client.h"
 #include "win_local.h"
 #include "resource.h"
@@ -36,6 +34,11 @@ This file is part of Jedi Academy.
 #include <conio.h>
 #ifndef MINGW32
 #include <crtdbg.h>
+#endif
+
+#ifdef MINGW32
+#include <malloc.h>
+#include "mingw32.h"
 #endif
 
 // The following macros set and clear, respectively, given bits

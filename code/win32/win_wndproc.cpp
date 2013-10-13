@@ -27,8 +27,7 @@ This file is part of Jedi Academy.
 #include "win_local.h"
 
 #ifdef MINGW32
-//copied from wine's winuser (LGPL)
-#define SPI_SCREENSAVERRUNNING    SPI_SETSCREENSAVERRUNNING
+#include "mingw32.h"
 #endif
 
 // The only directly referenced keycode - the console key (which gives different ascii codes depending on locale)

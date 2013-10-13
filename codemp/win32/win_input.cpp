@@ -6,6 +6,9 @@
 #include "client/client.h"
 #include "win_local.h"
 
+#ifdef MINGW32
+#include "mingw32.h"
+#endif
 
 typedef struct WinMouseVars_s {
 	int			oldButtonState;

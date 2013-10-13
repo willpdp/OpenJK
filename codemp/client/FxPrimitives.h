@@ -302,7 +302,7 @@ public:
 		mGhoul2 = iGhoul2; mEntNum = entNum; mModelNum = modelNum; mBoltNum = boltNum; 
 	}
 
-#ifdef _WIN32
+#if (defined _WIN32 && !defined MINGW32)
 	inline CParticle::CParticle(void)
 #else
 	inline CParticle(void)
@@ -311,7 +311,7 @@ public:
 		mRefEnt.reType = RT_SPRITE; mEntNum = -1; mModelNum = -1; mBoltNum = -1;
 	}
 
-#ifdef _WIN32
+#if (defined _WIN32 && !defined MINGW32)
 	virtual CParticle::~CParticle(void)
 #else
     virtual ~CParticle(void)

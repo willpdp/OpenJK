@@ -48,8 +48,10 @@ ____________________________________________________________________________*/
 #define __PDP_ENDIAN    3412
 #define __BYTE_ORDER    __LITTLE_ENDIAN
 #define usleep(x) ::Sleep(x/1000)
+#ifndef MINGW32
 #define strcasecmp(a,b) Q_stricmp(a,b)
 #define strncasecmp(a,b,c) Q_stricmpn(a,b,c)
+#endif
 typedef int socklen_t;
 #endif
 

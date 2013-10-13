@@ -557,10 +557,11 @@ void S_Init( void ) {
 				unsigned long ulFlags = 0;
 
 				if (s_eaxSet(&EAXPROPERTYID_EAX40_Source, EAXSOURCE_FLAGS,
-							s_channels[i].alSource, &ulFlags, sizeof(ulFlags))!=AL_NO_ERROR)
+							s_channels[i].alSource, &ulFlags, sizeof(ulFlags))!=AL_NO_ERROR) {
 #ifdef _MSC_VER
 							OutputDebugString("Failed to to remove Source flags\n");
 #endif
+				}
 			}
 
 			s_numChannels++;

@@ -120,6 +120,7 @@ else(WIN32)
 	#else(APPLE)
 	#	set(SharedDefines "__linux__" "_M_IX86")
 	endif()
+endif(WIN32)
 
 if(CMAKE_COMPILER_IS_GNUCC)
 
@@ -130,11 +131,6 @@ if(CMAKE_COMPILER_IS_GNUCC)
 	# removes the -rdynamic flag at linking (which causes crashes for some reason)
 	set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 	set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
-
-#remove these later - might be handy at the moment
-	# maybe remove these flags later, when the warnings are fixed
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fpermissive")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -fpermissive")
 
 	# additional flags for debug configuration
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb")

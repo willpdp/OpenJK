@@ -25,6 +25,9 @@ This file is part of Jedi Academy.
 #include "../../codeJK2/qcommon/strippublic.h"
 #include "../qcommon/cm_public.h"
 
+#ifdef MINGW32
+#include "../win32/mingw32.h"
+#endif
 
 // some zone mem debugging stuff
 #ifndef FINAL_BUILD

@@ -23,11 +23,12 @@ This file is part of Jedi Academy.
 //
 #include "../server/exe_headers.h"
 
-
-
-
 #include "../client/client.h"
 #include "win_local.h"
+
+#ifdef MINGW32
+#include "mingw32.h"
+#endif
 
 typedef struct {
 	int			oldButtonState;
