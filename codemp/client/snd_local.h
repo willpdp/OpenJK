@@ -12,7 +12,7 @@
 #include "OpenAL/al.h"
 #include "OpenAL/alc.h"
 #include "eax/eax.h"
-#include "eax/eaxman.h"
+#include "eax/EaxMan.h"
 #elif defined MACOS_X
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>

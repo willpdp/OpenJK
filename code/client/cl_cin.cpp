@@ -38,7 +38,7 @@ This file is part of Jedi Academy.
 #include "client.h"
 #include "client_ui.h"	// CHC
 #include "snd_local.h"
-#ifndef _WIN32
+#if !defined _WIN32 || defined MINGW32
 #include <cmath>
 #endif
 

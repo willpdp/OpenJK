@@ -31,6 +31,7 @@ This file is part of Jedi Academy.
 
 #ifdef MINGW32
 #include "mingw32.h"
+#include <cmath>
 #endif
 
 typedef struct {

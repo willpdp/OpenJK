@@ -813,7 +813,7 @@ sysEvent_t	Sys_GetEvent( void );
 void	Sys_Init (void);
 
 #ifdef _WIN32
-	#include <Windows.h>
+	#include <windows.h>
 	#define Sys_LoadLibrary(f) (void*)LoadLibrary(f)
 	#define Sys_UnloadLibrary(h) FreeLibrary((HMODULE)h)
 	#define Sys_LoadFunction(h,fn) (void*)GetProcAddress((HMODULE)h,fn)

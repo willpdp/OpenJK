@@ -20,6 +20,10 @@ This file is part of Jedi Academy.
 
 #pragma once
 
+#ifdef MINGW32
+#include <windows.h>
+#endif
+
 #if defined (_MSC_VER) && (_MSC_VER >= 1200)
 #pragma warning(disable : 4201)
 #pragma warning( push )
@@ -34,7 +38,7 @@ This file is part of Jedi Academy.
 #include <dsound.h>
 
 #ifndef NO_XINPUT
-#include <Xinput.h>
+#include <xinput.h>
 #endif
 
 void	IN_MouseEvent (int mstate);

@@ -6,7 +6,7 @@
 #include "client.h"
 #include "cl_cgameapi.h"
 #include "cl_uiapi.h"
-#ifndef _WIN32
+#if !defined _WIN32 || defined MINGW32
 #include <cmath>
 #endif
 unsigned	frame_msec;

@@ -34,7 +34,7 @@ This file is part of Jedi Academy.
 #include "ui_shared.h"
 #include "menudef.h"
 
-#ifndef _WIN32
+#if !defined _WIN32 || defined MINGW32
 #include <cmath>
 #endif
 

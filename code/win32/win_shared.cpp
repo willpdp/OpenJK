@@ -20,7 +20,7 @@ This file is part of Jedi Academy.
 //
 #include "../server/exe_headers.h"
 
-#include <ShlObj.h>
+#include <shlobj.h>
 
 #include "../qcommon/q_shared.h"
 #include "../qcommon/qcommon.h"
