@@ -29,7 +29,7 @@ endif(BuildJK2Support)
 # Customizable libraries
 if(WIN32)
 	option(UseInternalOpenAL "Whether to use the included OpenAL instead of a locally installed one" ON)
-	option(UseInternalZlib "Whether to use the included zlib instead of a locally installed one" OFF)
+	option(UseInternalZlib "Whether to use the included zlib instead of a locally installed one" ON)
 endif(WIN32)
 
 if(WIN32)
