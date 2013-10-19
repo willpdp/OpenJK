@@ -244,7 +244,7 @@ typedef enum direction_e
 
 PMOVE MODULE
 
-The pmove code takes a player_state_t and a usercmd_t and generates a new player_state_t
+The pmove code takes a playerState_t and a usercmd_t and generates a new playerState_t
 and some other output data.  Used for local prediction on the client game and true
 movement on the server game.
 ===================================================================================
@@ -524,7 +524,7 @@ void Pmove (pmove_t *pmove);
 //===================================================================================
 
 
-// player_state->stats[] indexes
+// playerState_t->stats[] indexes
 // NOTE: may not have more than 16
 typedef enum {
 	STAT_HEALTH,
@@ -541,8 +541,8 @@ typedef enum {
 } statIndex_t;
 
 
-// player_state->persistant[] indexes
-// these fields are the only part of player_state that isn't
+// playerState_t->persistant[] indexes
+// these fields are the only part of playerState_t that isn't
 // cleared on respawn
 // NOTE: may not have more than 16
 typedef enum {
@@ -560,7 +560,7 @@ typedef enum {
 	PERS_EXCELLENT_COUNT,			// two successive kills in a short amount of time
 	PERS_DEFEND_COUNT,				// defend awards
 	PERS_ASSIST_COUNT,				// assist awards
-	PERS_GAUNTLET_FRAG_COUNT,		// kills with the guantlet
+	PERS_GAUNTLET_FRAG_COUNT,		// kills with the gauntlet
 	PERS_CAPTURES					// captures
 } persEnum_t;
 
@@ -1642,7 +1642,7 @@ void BG_IK_MoveArm(void *ghoul2, int lHandBolt, int time, entityState_t *ent, in
 					 vec3_t origin, vec3_t angles, vec3_t scale, int blendTime, qboolean forceHalt);
 
 void BG_G2PlayerAngles(void *ghoul2, int motionBolt, entityState_t *cent, int time, vec3_t cent_lerpOrigin,
-					   vec3_t cent_lerpAngles, vec3_t legs[3], vec3_t legsAngles, qboolean *tYawing,
+					   vec3_t cent_lerpAngles, matrix3_t legs, vec3_t legsAngles, qboolean *tYawing,
 					   qboolean *tPitching, qboolean *lYawing, float *tYawAngle, float *tPitchAngle,
 					   float *lYawAngle, int frametime, vec3_t turAngles, vec3_t modelScale, int ciLegs,
 					   int ciTorso, int *corrTime, vec3_t lookAngles, vec3_t lastHeadAngles, int lookTime,
@@ -1732,7 +1732,7 @@ float BG_SI_Length(saberInfo_t *saber);
 float BG_SI_LengthMax(saberInfo_t *saber);
 void BG_SI_ActivateTrail ( saberInfo_t *saber, float duration );
 void BG_SI_DeactivateTrail ( saberInfo_t *saber, float duration );
-extern void BG_AttachToRancor( void *ghoul2,float rancYaw,vec3_t rancOrigin,int time,qhandle_t *modelList,vec3_t modelScale,qboolean inMouth,vec3_t out_origin,vec3_t out_angles,vec3_t out_axis[3] );
+extern void BG_AttachToRancor( void *ghoul2,float rancYaw,vec3_t rancOrigin,int time,qhandle_t *modelList,vec3_t modelScale,qboolean inMouth,vec3_t out_origin,vec3_t out_angles,matrix3_t out_axis );
 void BG_ClearRocketLock( playerState_t *ps );
 
 extern int WeaponReadyAnim[WP_NUM_WEAPONS];

@@ -4139,7 +4139,7 @@ void CG_AddLagometerSnapshotInfo( snapshot_t *snap ) {
 ==============
 CG_DrawDisconnect
 
-Should we draw something differnet for long lag vs no packets?
+Should we draw something different for long lag vs no packets?
 ==============
 */
 static void CG_DrawDisconnect( void ) {
@@ -5195,9 +5195,9 @@ static void CG_DrawCrosshair( vec3_t worldPoint, int chEntValid ) {
 qboolean CG_WorldCoordToScreenCoordFloat(vec3_t worldCoord, float *x, float *y)
 {
     vec3_t trans;
-    vec_t xc, yc;
-    vec_t px, py;
-    vec_t z;
+    float xc, yc;
+    float px, py;
+    float z;
 
     px = tan(cg.refdef.fov_x * (M_PI / 360) );
     py = tan(cg.refdef.fov_y * (M_PI / 360) );
@@ -8253,7 +8253,7 @@ static void CG_Draw2D( void ) {
 	CG_ChatBox_DrawStrings();
 }
 
-qboolean CG_CullPointAndRadius( const vec3_t pt, vec_t radius);
+qboolean CG_CullPointAndRadius( const vec3_t pt, float radius);
 void CG_DrawMiscStaticModels( void ) {
 	int i, j;
 	refEntity_t ent;
@@ -8322,7 +8322,7 @@ void CG_DrawActive( stereoFrame_t stereoView ) {
 		return;
 	}
 
-	// optionally draw the tournement scoreboard instead
+	// optionally draw the tournament scoreboard instead
 	if ( cg.snap->ps.persistant[PERS_TEAM] == TEAM_SPECTATOR &&
 		( cg.snap->ps.pm_flags & PMF_SCOREBOARD ) ) {
 		CG_DrawTourneyScoreboard();

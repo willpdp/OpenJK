@@ -3170,7 +3170,7 @@ void G_GetDismemberBolt(gentity_t *self, vec3_t boltPoint, int limbType)
 {
 	int useBolt = self->genericValue5;
 	vec3_t properOrigin, properAngles, addVel;
-	//vec3_t legAxis[3];
+	//matrix3_t legAxis;
 	mdxaBone_t	boltMatrix;
 	float fVSpeed = 0;
 	char *rotateBone = NULL;
@@ -4393,7 +4393,7 @@ void G_Knockdown( gentity_t *victim )
 
 /*
 ============
-T_Damage
+G_Damage
 
 targ		entity that is being damaged
 inflictor	entity that is causing the damage
@@ -4407,7 +4407,7 @@ knockback	force to be applied against targ as a result of the damage
 
 inflictor, attacker, dir, and point can be NULL for environmental effects
 
-dflags		these flags are used to control how T_Damage works
+dflags		these flags are used to control how G_Damage works
 	DAMAGE_RADIUS			damage was indirect (from a nearby explosion)
 	DAMAGE_NO_ARMOR			armor does not protect from this damage
 	DAMAGE_NO_KNOCKBACK		do not affect velocity, just view angles

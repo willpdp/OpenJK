@@ -136,7 +136,7 @@ dma_t		dma;
 
 int			listener_number;
 vec3_t		listener_origin;
-vec3_t		listener_axis[3];
+matrix3_t	listener_axis;
 
 int			s_soundtime;		// sample PAIRS
 int   		s_paintedtime; 		// sample PAIRS
@@ -1356,9 +1356,9 @@ Used for spatializing s_channels
 */
 void S_SpatializeOrigin (const vec3_t origin, float master_vol, int *left_vol, int *right_vol, int channel)
 {
-    vec_t		dot;
-    vec_t		dist;
-    vec_t		lscale, rscale, scale;
+    float		dot;
+    float		dist;
+    float		lscale, rscale, scale;
     vec3_t		source_vec;
 	float		dist_mult = SOUND_ATTENUATE;
 
@@ -1549,7 +1549,7 @@ S_StartSound
 
 Validates the parms and ques the sound up
 if pos is NULL, the sound will be dynamically sourced from the entity
-Entchannel 0 will never override a playing sound
+entchannel 0 will never override a playing sound
 ====================
 */
 void S_StartSound(const vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfxHandle ) 
@@ -2088,7 +2088,7 @@ void S_AddLoopSounds (void)
 =================
 S_ByteSwapRawSamples
 
-If raw data has been loaded in little endien binary form, this must be done.
+If raw data has been loaded in little endian binary form, this must be done.
 If raw data was calculated, as with ADPCM, this should not be called.
 =================
 */
@@ -2485,7 +2485,7 @@ S_Respatialize
 Change the volumes of all the playing sounds for changes in their positions
 ============
 */
-void S_Respatialize( int entityNum, const vec3_t head, vec3_t axis[3], int inwater )
+void S_Respatialize( int entityNum, const vec3_t head, matrix3_t axis, int inwater )
 {
 #ifdef _WIN32
 	EAXOCCLUSIONPROPERTIES eaxOCProp;
