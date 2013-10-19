@@ -2,7 +2,7 @@ Status
 ======
 
 * can fully compile OpenJK in Windows and Linux
-* codeJK2 dll will now compile but not tested (at all!!)
+* codeJK2 dll will now compile and runs (see notes below)
 
 * to make a debug build (can use with GDB) add -DCMAKE_BUILD_TYPE=DEBUG to cmake command
 
@@ -32,4 +32,11 @@ Only tested in Ubuntu 12.04, generated binaries not tested!
 * cmake ../OpenJK -DCMAKE_TOOLCHAIN_FILE=../OpenJK/CMakeModules/mingw-toolchain.cmake
 * make
 
+How to get JK2 to run
+=====================
+
+* compile
+* copy binaries to directory containing JK2 base/ (and not the files from JO base/)
+* install JKII patch 1.04 to get assets2.pak and assets5.pak (will need to install from disc)
+* run "openjk_sp.x86.exe +set com_jk2 1"
 
