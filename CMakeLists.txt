@@ -10,7 +10,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 #    Customizable options
 option(BuildPortableVersion "Build portable version (does not read or write files from your user/home directory" OFF)
 
-option(BuildJK2Support "Build JK2 support" OFF)
+option(BuildJK2Support "Build JK2 support" ON)
 
 option(BuildMPEngine "Whether to create projects for the MP client (openjk.exe)" ON)
 option(BuildMPDed "Whether to create projects for the MP dedicated server (openjkded.exe)" ON)

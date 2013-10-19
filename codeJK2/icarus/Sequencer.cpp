@@ -21,6 +21,7 @@ This file is part of Jedi Knight 2.
 //	-- jweier
 
 // this include must remain at the top of every Icarus CPP file
+#include "../game/g_local.h"
 #include "icarus.h"
 #include "g_headers.h"
 
@@ -2283,7 +2284,13 @@ int CSequencer::DestroySequence( CSequence *sequence )
 	{
 		if((*tsi).second == sequence)
 		{
+#if (defined _WIN32 && !defined MINGW32)
 			tsi = m_taskSequences.erase(tsi);
+#else
+			taskSequence_m::iterator itTemp = tsi;
+			tsi++;
+			m_taskSequences.erase(itTemp);
+#endif
 		}
 		else
 		{

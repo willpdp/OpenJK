@@ -71,6 +71,7 @@ set(JK2SPGameFiles
 	"${JK2SPDir}/game/g_missile.cpp"
 	"${JK2SPDir}/game/g_mover.cpp"
 	"${JK2SPDir}/game/g_nav.cpp"
+	"${JK2SPDir}/game/g_navigator.cpp"
 	"${JK2SPDir}/game/g_navnew.cpp"
 	"${JK2SPDir}/game/g_object.cpp"
 	"${JK2SPDir}/game/g_objectives.cpp"
@@ -229,6 +230,7 @@ set(JK2SPGameFiles ${JK2SPGameFiles} ${JK2SPGameCommonFiles})
 
 set(JK2SPGameIcarusFiles
 	"${JK2SPDir}/icarus/BlockStream.cpp"
+	"${JK2SPDir}/icarus/Instance.cpp"
 	"${JK2SPDir}/icarus/Sequence.cpp"
 	"${JK2SPDir}/icarus/Sequencer.cpp"
 	"${JK2SPDir}/icarus/TaskManager.cpp"
@@ -270,10 +272,10 @@ endif(WIN32)
 
 add_library(${JK2SPGame} SHARED ${JK2SPGameFiles})
 
-if(NOT WIN32)
+if((NOT WIN32) OR MINGW)
 	# remove "lib" prefix for .so/.dylib files
 	set_target_properties(${JK2SPGame} PROPERTIES PREFIX "")
-endif(NOT WIN32)
+endif((NOT WIN32) OR MINGW)
 
 if(WIN32)
 	install(TARGETS ${JK2SPGame} RUNTIME DESTINATION "OpenJK")

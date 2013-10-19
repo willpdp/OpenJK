@@ -28,7 +28,9 @@ extern void CG_PreInit();
 
 int (*syscall)( int arg, ... ) = (int (*)( int, ...))-1;
 
-
+#if (!defined _WIN32 || defined MINGW32)
+extern "C"
+#endif
 void dllEntry( int (*syscallptr)( int arg,... ) ) {
 	syscall = syscallptr;
 	CG_PreInit();

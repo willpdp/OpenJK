@@ -21,6 +21,7 @@ This file is part of Jedi Knight 2.
 //	-- jweier
 
 // this include must remain at the top of every Icarus CPP file
+#include "../game/g_local.h"
 #include "icarus.h"
 
 
@@ -28,7 +29,7 @@ This file is part of Jedi Knight 2.
 #pragma warning(disable : 4710)  //member not inlined
 
 #include <string.h>
-#include "BlockStream.h"
+#include "blockstream.h"
 
 /*
 ===================================================================================================

@@ -24,6 +24,10 @@ This file is part of Jedi Knight 2.
 
 #ifdef _WIN32
 
+#ifdef MINGW32
+#include <windows.h>
+#endif
+
 #pragma warning(disable : 4018)     // signed/unsigned mismatch
 //#pragma warning(disable : 4032)		//formal parameter 'number' has different type when promoted
 //#pragma warning(disable : 4051)		//type conversion; possible loss of data
@@ -322,6 +326,10 @@ static inline long Q_ftol(float f)
 {
 	return (long)f;
 }
+
+#include <stdint.h>
+#define Q_vsnprintf vsnprintf
+
 #endif
 
 #define NUMVERTEXNORMALS	162
