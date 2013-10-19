@@ -2,7 +2,7 @@ Status
 ======
 
 * can fully compile OpenJK in Windows and Linux
-* not attempted to compile codeJK2 yet
+* codeJK2 dll will now compile but not tested (at all!!)
 
 * to make a debug build (can use with GDB) add -DCMAKE_BUILD_TYPE=DEBUG to cmake command
 
